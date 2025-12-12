@@ -83,7 +83,12 @@ function insertImplicitMultiplication(expr: string) {
   // Between ')' and number/constant/identifier
   out = out.replace(/(\))(?=(\d|pi|e|tau|phi|i|[a-zA-Z_]))/g, "$1*");
   // Between number/constant and identifier
-  out = out.replace(/(\d|pi|e|tau|phi|i)(?=[a-zA-Z_])/g, "$1*");
+  // Use word boundaries for single-letter constants so we don't split inside names
+  // like "sin", "sec", or "ceil".
+  out = out.replace(
+    /(\d|\)|\bpi\b|\be\b|\btau\b|\bphi\b|\bi\b)(?=[a-zA-Z_])/g,
+    "$1*"
+  );
   // Identifier followed by '(' (variable * (...) ), but not for functions.
   out = out.replace(/([a-zA-Z_]\w*)(?=\()/g, (name) =>
     functionNames.has(name) ? name : `${name}*`
