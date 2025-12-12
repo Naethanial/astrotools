@@ -1,0 +1,36 @@
+{
+  "name": "calculator",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "NEXT_DISABLE_TURBOPACK=1 next dev",
+    "build": "NEXT_DISABLE_TURBOPACK=1 next build",
+    "start": "next start",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@radix-ui/react-slot": "^1.2.4",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.560.0",
+    "mathjs": "^15.1.0",
+    "mathquill": "^0.10.1-a",
+    "next": "^16.0.10",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "react-mathquill": "^1.0.4",
+    "tailwind-merge": "^3.4.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@tailwindcss/postcss": "^4",
+    "@types/jquery": "^3.5.33",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9.39.1",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "typescript-eslint": "^8.49.0"
+  }
+}
