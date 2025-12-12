@@ -58,6 +58,9 @@ function insertImplicitMultiplication(expr: string) {
     "acosh",
     "atanh",
     "sqrt",
+    "sum",
+    "prod",
+    "int",
     "ln",
     "log",
     "log10",
@@ -112,12 +115,31 @@ function latexToExpression(latex: string) {
   replaceLoop(/\\sqrt\{([^{}]+)\}/g, (_m, inner) => {
     return `sqrt(${inner})`;
   });
+  // Absolute value |x|
+  replaceLoop(/\\left\|([^|{}]+)\\right\|/g, (_m, inner) => {
+    return `abs(${inner})`;
+  });
+  // Floor/ceil brackets.
+  replaceLoop(/\\left\\lfloor([^{}]+)\\right\\rfloor/g, (_m, inner) => {
+    return `floor(${inner})`;
+  });
+  replaceLoop(/\\left\\lceil([^{}]+)\\right\\rceil/g, (_m, inner) => {
+    return `ceil(${inner})`;
+  });
+
+  // Convert operatorname wrappers (e.g., \\operatorname{gcd}).
+  replaceLoop(/\\operatorname\{([a-zA-Z][a-zA-Z0-9]*)\}/g, (_m, name) => {
+    return String(name);
+  });
 
   expr = expr
     .replace(/\\times/g, "*")
     .replace(/\\div/g, "/")
     .replace(/\\cdot/g, "*")
     .replace(/\\pi/g, "pi")
+    .replace(/\\tau/g, "tau")
+    .replace(/\\phi/g, "phi")
+    .replace(/\\theta/g, "theta")
     .replace(/\\ln/g, "ln")
     .replace(/\\log/g, "log")
     .replace(/\\sin/g, "sin")
@@ -133,6 +155,10 @@ function latexToExpression(latex: string) {
     .replace(/\\cosh/g, "cosh")
     .replace(/\\tanh/g, "tanh")
     .replace(/\\exp/g, "exp")
+    // Allow simple function forms for sum/prod/int.
+    .replace(/\\sum/g, "sum")
+    .replace(/\\prod/g, "prod")
+    .replace(/\\int/g, "int")
     .replace(/\s+/g, "");
 
   // Powers like x^{2}
@@ -199,6 +225,27 @@ function evaluateLines(
   scope.ln = (x: number) => math.log(x);
   scope.log = (x: number, base?: number) =>
     base == null ? math.log10(x) : math.log(x, base);
+
+  // Simple numeric integral helper: int(f, a, b[, n])
+  // Example: int(x^2, 0, 1)  -> ~0.3333
+  scope.int = (
+    f: unknown,
+    a: number,
+    b: number,
+    n = 1000
+  ): number => {
+    const fn =
+      typeof f === "function"
+        ? (f as (x: number) => number)
+        : (x: number) => math.evaluate(String(f), { x });
+    const steps = Math.max(10, Math.floor(n));
+    const h = (b - a) / steps;
+    let acc = 0.5 * (fn(a) + fn(b));
+    for (let i = 1; i < steps; i++) {
+      acc += fn(a + i * h);
+    }
+    return acc * h;
+  };
   if (angleUnit === "deg") {
     scope.sin = (x: number) => math.sin(math.unit(x, "deg"));
     scope.cos = (x: number) => math.cos(math.unit(x, "deg"));
