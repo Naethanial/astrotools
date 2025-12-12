@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { create, all } from "mathjs";
+import { create, all, type MathJsStatic } from "mathjs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -17,11 +17,17 @@ const StaticMathField = dynamic(
   { ssr: false }
 );
 
-const math = create(all, {});
+const math = create(all, {}) as unknown as MathJsStatic;
 
 type Line = {
   latex: string;
   text: string;
+};
+
+type ConstantDef = {
+  key: string;
+  label: string;
+  value: number;
 };
 
 type MQFieldApi = {
@@ -30,6 +36,8 @@ type MQFieldApi = {
   latex: () => string;
   text: () => string;
 };
+
+const CONST_ID_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
 function insertImplicitMultiplication(expr: string) {
   // Make common calculator-style inputs mathjs-friendly:
@@ -137,6 +145,13 @@ function latexToExpression(latex: string) {
     return String(name);
   });
 
+  // Convert MathQuill embeds used for constants:
+  //   \embed{const}[k]  => k
+  replaceLoop(/\\embed\{const\}\[([^\]]+)\]/g, (_m, id) => {
+    const key = String(id);
+    return CONST_ID_RE.test(key) ? key : "const";
+  });
+
   expr = expr
     .replace(/\\times/g, "*")
     .replace(/\\div/g, "/")
@@ -214,7 +229,8 @@ function normalizeNumber(n: number) {
 
 function resultToLatex(result: unknown) {
   try {
-    return math.latex(result as never);
+    // mathjs exposes `latex(...)` at runtime, but its TS types may not include it.
+    return (math as unknown as { latex: (x: unknown) => string }).latex(result);
   } catch {
     if (typeof result === "string") return `\\text{${result}}`;
     return String(result);
@@ -223,7 +239,8 @@ function resultToLatex(result: unknown) {
 
 function evaluateLines(
   lines: Line[],
-  angleUnit: "deg" | "rad"
+  angleUnit: "deg" | "rad",
+  constants: ConstantDef[]
 ): Array<{ latex: string; raw: unknown }> {
   const scope: Record<string, unknown> = {};
   // TI-style logs and last answer variable.
@@ -258,9 +275,15 @@ function evaluateLines(
     scope.sec = (x: number) => 1 / (scope.cos as (x: number) => number)(x);
     scope.csc = (x: number) => 1 / (scope.sin as (x: number) => number)(x);
     scope.cot = (x: number) => 1 / (scope.tan as (x: number) => number)(x);
-    scope.asin = (x: number) => math.asin(x) * (180 / Math.PI);
-    scope.acos = (x: number) => math.acos(x) * (180 / Math.PI);
-    scope.atan = (x: number) => math.atan(x) * (180 / Math.PI);
+    scope.asin = (x: number) => Number(math.asin(x)) * (180 / Math.PI);
+    scope.acos = (x: number) => Number(math.acos(x)) * (180 / Math.PI);
+    scope.atan = (x: number) => Number(math.atan(x)) * (180 / Math.PI);
+  }
+
+  // User-defined constants
+  for (const c of constants) {
+    if (!CONST_ID_RE.test(c.key)) continue;
+    scope[c.key] = c.value;
   }
 
   const out: Array<{ latex: string; raw: unknown }> = [];
@@ -291,9 +314,46 @@ export default function Home() {
   const [angleUnit, setAngleUnit] = useState<"deg" | "rad">("rad");
   const fieldRefs = useRef<Array<MQFieldApi | null>>([]);
 
-  const results = useMemo(() => evaluateLines(lines, angleUnit), [
+  const [constants, setConstants] = useState<ConstantDef[]>([
+    { key: "k", label: "Coulomb constant (example)", value: 8.9875517923e9 },
+    { key: "g", label: "Gravity (m/s^2)", value: 9.80665 },
+    { key: "R", label: "Gas constant", value: 8.314462618 },
+    { key: "c0", label: "Speed of light", value: 299792458 },
+  ]);
+
+  const addConstant = useCallback(() => {
+    setConstants((prev) => {
+      const used = new Set(prev.map((c) => c.key));
+      let n = 1;
+      let key = `c${n}`;
+      while (used.has(key)) {
+        n++;
+        key = `c${n}`;
+      }
+      return [...prev, { key, label: "", value: 1 }];
+    });
+  }, []);
+
+  const removeConstant = useCallback((key: string) => {
+    setConstants((prev) => prev.filter((c) => c.key !== key));
+  }, []);
+
+  const updateConstantValue = useCallback((key: string, value: number) => {
+    setConstants((prev) =>
+      prev.map((c) => (c.key === key ? { ...c, value } : c))
+    );
+  }, []);
+
+  const updateConstantLabel = useCallback((key: string, label: string) => {
+    setConstants((prev) =>
+      prev.map((c) => (c.key === key ? { ...c, label } : c))
+    );
+  }, []);
+
+  const results = useMemo(() => evaluateLines(lines, angleUnit, constants), [
     lines,
     angleUnit,
+    constants,
   ]);
 
   const updateLine = useCallback(
@@ -333,102 +393,187 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
-      <Card className="w-full max-w-2xl">
+      <Card className="w-full max-w-5xl backdrop-blur-md">
         <CardHeader>
           <CardTitle>Scientific Calculator (minimal)</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-end gap-2">
-            <span className="text-sm text-foreground/70">Angle:</span>
-            <div className="inline-flex rounded-md border border-foreground/15 p-0.5">
-              <Button
-                size="sm"
-                variant={angleUnit === "rad" ? "default" : "ghost"}
-                onClick={() => setAngleUnit("rad")}
-              >
-                RAD
+        <CardContent className="grid gap-6 md:grid-cols-[1fr_300px]">
+          <div className="space-y-4">
+            <div className="flex items-center justify-end gap-2">
+              <span className="text-sm text-foreground/70">Angle:</span>
+              <div className="inline-flex rounded-md border border-foreground/15 p-0.5">
+                <Button
+                  size="sm"
+                  variant={angleUnit === "rad" ? "default" : "ghost"}
+                  onClick={() => setAngleUnit("rad")}
+                  className={
+                    angleUnit === "rad"
+                      ? "shadow-[0_4px_12px_0_rgba(0,0,0,0.15)] bg-white/30 text-black/80 hover:bg-white/40"
+                      : undefined
+                  }
+                >
+                  RAD
+                </Button>
+                <Button
+                  size="sm"
+                  variant={angleUnit === "deg" ? "default" : "ghost"}
+                  onClick={() => setAngleUnit("deg")}
+                  className={
+                    angleUnit === "deg"
+                      ? "shadow-[0_4px_12px_0_rgba(0,0,0,0.15)] bg-white/30 text-black/80 hover:bg-white/40"
+                      : undefined
+                  }
+                >
+                  DEG
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-4 gap-2 bg-[unset] [background:unset]">
+              <Button variant="outline" onClick={() => writeToActive("+")}>
+                +
+              </Button>
+              <Button variant="outline" onClick={() => writeToActive("-")}>
+                −
               </Button>
               <Button
-                size="sm"
-                variant={angleUnit === "deg" ? "default" : "ghost"}
-                onClick={() => setAngleUnit("deg")}
+                variant="outline"
+                onClick={() => writeToActive("\\times ")}
               >
-                DEG
+                ×
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => writeToActive("\\div ")}
+              >
+                ÷
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => writeToActive("sin\\left(\\right)")}
+              >
+                sin
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => writeToActive("cos\\left(\\right)")}
+              >
+                cos
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => writeToActive("tan\\left(\\right)")}
+              >
+                tan
+              </Button>
+              <Button variant="ghost" onClick={() => writeToActive("\\sqrt{}")}>
+                √
               </Button>
             </div>
-          </div>
-          <div className="grid grid-cols-4 gap-2">
-            <Button variant="outline" onClick={() => writeToActive("+")}>
-              +
-            </Button>
-            <Button variant="outline" onClick={() => writeToActive("-")}>
-              −
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => writeToActive("\\times ")}
-            >
-              ×
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => writeToActive("\\div ")}
-            >
-              ÷
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => writeToActive("sin\\left(\\right)")}
-            >
-              sin
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => writeToActive("cos\\left(\\right)")}
-            >
-              cos
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => writeToActive("tan\\left(\\right)")}
-            >
-              tan
-            </Button>
-            <Button variant="ghost" onClick={() => writeToActive("\\sqrt{}")}>
-              √
-            </Button>
-          </div>
 
-          <div className="space-y-3">
-            {lines.map((line, i) => (
-              <div
-                key={i}
-                className="grid grid-cols-[1fr_auto] gap-3 items-start"
-              >
-                <MathQuillField
-                  latex={line.latex}
-                  onChange={(latex, text) => updateLine(i, latex, text)}
-                  onEnter={() => addLineAfter(i)}
-                  onFocus={() => setActiveIndex(i)}
-                  onMount={(mf) => {
-                    fieldRefs.current[i] = mf as MQFieldApi;
-                  }}
-                />
-                <div className="min-w-24 text-right text-lg tabular-nums text-foreground/80 pt-1">
-                  {results[i]?.latex ? (
-                    <StaticMathField>{results[i].latex}</StaticMathField>
-                  ) : (
-                    ""
-                  )}
-                </div>
+            <div className="space-y-2">
+              <div className="text-xs text-foreground/60">Constants</div>
+              <div className="flex flex-wrap gap-2">
+                {constants
+                  .filter((c) => CONST_ID_RE.test(c.key))
+                  .map((c) => (
+                    <Button
+                      key={c.key}
+                      size="sm"
+                      variant="outline"
+                      onClick={() => writeToActive(`\\embed{const}[${c.key}] `)}
+                    >
+                      {c.key}
+                    </Button>
+                  ))}
               </div>
-            ))}
+            </div>
+
+            <div className="space-y-3">
+              {lines.map((line, i) => (
+                <div
+                  key={i}
+                  className="grid grid-cols-[1fr_auto] gap-3 items-start"
+                >
+                  <MathQuillField
+                    latex={line.latex}
+                    onChange={(latex, text) => updateLine(i, latex, text)}
+                    onEnter={() => addLineAfter(i)}
+                    onFocus={() => setActiveIndex(i)}
+                  constants={constants}
+                    onUpdateConstant={updateConstantValue}
+                    onMount={(mf) => {
+                      fieldRefs.current[i] = mf as MQFieldApi;
+                    }}
+                  />
+                  <div className="min-w-24 text-right text-lg tabular-nums text-foreground/80 pt-1">
+                    {results[i]?.latex ? (
+                      <StaticMathField>{results[i].latex}</StaticMathField>
+                    ) : (
+                      ""
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-sm text-foreground/60">
+              Type directly: <code>sqrt</code>, <code>int</code>, <code>sin</code>{" "}
+              auto‑convert. Results update live; Enter adds a new line.
+            </p>
           </div>
 
-          <p className="text-sm text-foreground/60">
-            Type directly: <code>sqrt</code>, <code>int</code>, <code>sin</code>{" "}
-            auto‑convert. Results update live; Enter adds a new line.
-          </p>
+          <aside className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-medium">Constants</div>
+              <Button size="sm" variant="outline" onClick={addConstant}>
+                Add
+              </Button>
+            </div>
+            <div className="space-y-2">
+              {constants.map((c) => (
+                <div
+                  key={c.key}
+                  className="rounded-md border border-foreground/15 bg-white/15 text-white p-2 space-y-2 shadow-[0_4px_12px_0_rgba(0,0,0,0.15)]"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-sm font-medium">
+                      {CONST_ID_RE.test(c.key) ? c.key : "(invalid key)"}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => removeConstant(c.key)}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                  <label className="block text-xs text-foreground/60">Label</label>
+                  <input
+                    className="w-full rounded-md border border-foreground/15 bg-white/10 px-2 py-1 text-sm shadow-[inset_0_4px_12px_0_rgba(0,0,0,0.15)]"
+                    value={c.label}
+                    onChange={(e) => updateConstantLabel(c.key, e.target.value)}
+                    placeholder="Optional description"
+                  />
+                  <label className="block text-xs text-foreground/60">Value</label>
+                  <input
+                    className="w-full rounded-md border border-foreground/15 bg-white/10 px-2 py-1 text-sm shadow-[inset_0_4px_12px_0_rgba(0,0,0,0.15)]"
+                    inputMode="decimal"
+                    value={String(c.value)}
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      if (Number.isFinite(n)) updateConstantValue(c.key, n);
+                    }}
+                  />
+                </div>
+              ))}
+              {constants.length === 0 ? (
+                <div className="text-sm text-foreground/60">
+                  No constants yet. Click “Add”.
+                </div>
+              ) : null}
+            </div>
+          </aside>
         </CardContent>
       </Card>
     </div>

@@ -15,15 +15,31 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #00000050;
+    --foreground: #ffffff;
   }
 }
 
+html,
 body {
-  background: var(--background);
+  min-height: 100%;
+}
+
+body {
+  min-height: 100vh;
+  background-color: var(--background);
+  background-image: url("/tahoe-default.jpg");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Dev overlay portal tweaks (Next.js injects this element in dev). */
+nextjs-portal {
+  top: unset !important;
+  left: unset !important;
 }
 
 /* Light touch for MathQuill to blend with Tailwind */
@@ -34,4 +50,10 @@ body {
 }
 .mq-cursor {
   border-left: 1px solid currentColor !important;
+}
+
+/* Embedded constant "pill" inside MathQuill */
+.mq-math-mode .mq-const-embed {
+  font-family: Symbola !important;
+  font-size: 14px !important;
 }
