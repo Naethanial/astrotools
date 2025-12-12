@@ -5,7 +5,23 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 type MathField = unknown;
 
-const CONST_ID_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+function isValidConstEmbedKey(key: string) {
+  const k = String(key);
+  if (!k.trim()) return false;
+  // Embed ids are serialized in `[...]`; disallow `]` to avoid breaking.
+  if (k.includes("]")) return false;
+  if (k.includes("\n") || k.includes("\r")) return false;
+  return true;
+}
+
+function escapeHtml(s: string) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 export type ConstantDef = {
   key: string;
@@ -134,7 +150,7 @@ export function MathQuillField({
   const [popoverValue, setPopoverValue] = useState("");
 
   const safeConstants = useMemo(() => {
-    return (constants ?? []).filter((c) => CONST_ID_RE.test(c.key));
+    return (constants ?? []).filter((c) => isValidConstEmbedKey(c.key));
   }, [constants]);
 
   const filteredConstants = useMemo(() => {
@@ -179,7 +195,7 @@ export function MathQuillField({
   }
 
   function insertConstantEmbed(key: string) {
-    if (!CONST_ID_RE.test(key)) return;
+    if (!isValidConstEmbedKey(key)) return;
     const mf = mfRef.current;
     if (!mf) return;
     mf.write(`\\embed{const}[${key}]`);
@@ -235,13 +251,15 @@ export function MathQuillField({
 
       if (MQ?.registerEmbed) {
         MQ.registerEmbed("const", (id) => {
-          const key = typeof id === "string" && CONST_ID_RE.test(id) ? id : "const";
+          const key =
+            typeof id === "string" && isValidConstEmbedKey(id) ? id : "const";
           const pillClass =
             "mq-const-embed inline-flex flex-wrap items-center justify-center rounded-full border border-white/10 bg-white/10 px-[3px] py-0 text-[18px] leading-[18px] font-medium text-foreground text-center align-middle select-none box-border min-h-5 min-w-5 shadow-[inset_0px_0px_4px_0px_rgba(0,0,0,0.23)] [border-image:none]";
 
-          // IMPORTANT: never interpolate untrusted HTML here. `key` is strictly validated.
+          // IMPORTANT: never interpolate untrusted HTML here.
+          const safeKey = escapeHtml(key);
           return {
-            htmlString: `<span class="${pillClass}" data-const-id="${key}">${key}</span>`,
+            htmlString: `<span class="${pillClass}" data-const-id="${safeKey}">${safeKey}</span>`,
             text: () => key,
             latex: () => `\\embed{const}[${key}]`,
           };
@@ -387,7 +405,7 @@ export function MathQuillField({
         ) as HTMLElement | null;
         if (!target) return;
         const key = target.getAttribute("data-const-id") ?? "";
-        if (!CONST_ID_RE.test(key)) return;
+        if (!isValidConstEmbedKey(key)) return;
         const r = target.getBoundingClientRect();
         const root = wrapperRef.current;
         const rootRect = root?.getBoundingClientRect();
@@ -439,11 +457,12 @@ export function MathQuillField({
               if (MQ?.registerEmbed) {
                 MQ.registerEmbed("const", (id) => {
                   const key =
-                    typeof id === "string" && CONST_ID_RE.test(id) ? id : "const";
+                    typeof id === "string" && isValidConstEmbedKey(id) ? id : "const";
                   const pillClass =
                     "mq-const-embed inline-flex flex-wrap items-center justify-center rounded-full border border-white/10 bg-white/10 px-[3px] py-0 text-[18px] leading-[18px] font-medium text-foreground text-center align-middle select-none box-border min-h-5 min-w-5 shadow-[inset_0px_0px_4px_0px_rgba(0,0,0,0.23)] [border-image:none]";
+                  const safeKey = escapeHtml(key);
                   return {
-                    htmlString: `<span class="${pillClass}" data-const-id="${key}">${key}</span>`,
+                    htmlString: `<span class="${pillClass}" data-const-id="${safeKey}">${safeKey}</span>`,
                     text: () => key,
                     latex: () => `\\embed{const}[${key}]`,
                   };

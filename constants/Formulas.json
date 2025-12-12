@@ -1,0 +1,237 @@
+{
+  "POPUP_TREE": {
+    "root": [
+      { "text": "Exoplanets", "next": "exoplanets" },
+      { "text": "Orbits", "next": "orbital" },
+      { "text": "Telescopes", "next": "telescopes" },
+      { "text": "Volume/SA", "next": "volume" },
+      { "text": "Distance", "next": "distance" },
+      { "text": "Redshift", "next": "redshift" },
+      { "text": "Stellar", "next": "stellar" },
+      { "text": "Fundamental", "next": "fundamental" }
+    ],
+    "exoplanets": [
+      { "text": "Stellar Flux at Distance", "next": "stellar-flux" },
+      { "text": "Equillibirum Temperature", "next": "equillibrium-temperature" },
+      { "text": "Transit Depth", "next": "transit-depth" },
+      { "text": "Radial Velocity for Mass", "next": "radial-velo" },
+      { "text": "Surface Gravity", "next": "surface-gravity" },
+      { "text": "Mean Density", "next": "mean-density" },
+      { "text": "Atmospheric Scale Height", "next": "atmo-height" },
+      { "text": "Orbital Period", "next": "orbit-per" }
+    ],
+    "volume": [
+      { "text": "Sphere", "next": "sphere" },
+      { "text": "Rectangular Prism", "next": "rectangularprism" },
+      { "text": "Cylinder", "next": "cylinder" },
+      { "text": "Cone", "next": "cone" }
+    ],
+    "sphere": [
+      { "text": "surface area", "value": "(4*π*[radius]^2)" },
+      { "text": "volume", "value": "4/3 * π * [radius]^2" },
+      { "text": "density", "value": "[mass]/(4/3 * π * [radius]^2" },
+      { "text": "radius", "value": "(3/4 * 1/π)^(1/3)" }
+    ],
+    "rectangularprism": [
+      { "text": "surface area", "value": "(4*π*[radius]^2)" },
+      { "text": "volume", "value": "4/3 * π * [radius]^2" },
+      { "text": "density", "value": "2([side1]+[side2]+[side3])" }
+    ],
+    "cylinder": [
+      { "text": "surface area", "value": "2*π*[radius]*[height]+2*π*[radius]^2" },
+      { "text": "volume", "value": "[circle area]*[height]" },
+      { "text": "density", "value": "[mass]/([circle area]*[height])" },
+      { "text": "radius", "value": "[volume]/(π*[height])^(1/2)" }
+    ],
+    "cone": [
+      { "text": "surface area", "value": "stop" }
+    ],
+    "orbital": [
+      { "text": "Circular Velocity", "next": "circular-velocity" },
+      { "text": "Orbital Eccentricity", "next": "orbital-eccentricity" },
+      { "text": "Apastron Distance", "next": "apastron" },
+      { "text": "Periastron Distance", "next": "periastron" },
+      { "text": "Kepler's 3rd Law", "next": "kepler-third" },
+      { "text": "Escape Velocity", "next": "escape-velocity" }
+    ],
+    "telescopes": [
+      { "text": "Small Angle Formula", "next": "small-angle" },
+      { "text": "Resolving Power", "next": "resolving-power" },
+      { "text": "Magnification", "next": "magnification" }
+    ],
+    "luminosity": [
+      { "text": "Wien's Law", "next": "wiens-law" },
+      { "text": "Stefan-Boltzmann Law", "next": "stefan-boltzmann" },
+      { "text": "Inverse Square Law", "next": "inverse-square" },
+      { "text": "Absolute Magnitude", "next": "absolute-magnitude" },
+      { "text": "Distance Modulus", "next": "distance-modulus" }
+    ],
+    "redshift": [
+      { "text": "Doppler Formula", "next": "doppler-formula" },
+      { "text": "Recessional Velocity", "next": "recessional-velocity" },
+      { "text": "Relativistic Doppler Shift", "next": "relativistic-doppler" }
+    ],
+    "stellar": [
+      { "text": "Mass-Luminosity Relationship", "next": "mass-luminosity" },
+      { "text": "Stellar Lifetime", "next": "stellar-lifetime" },
+      { "text": "Parallax", "next": "parallax" }
+    ],
+    "fundamental": [
+      { "text": "Schwarzschild Radius", "next": "schwarzschild-radius" },
+      { "text": "Universal Gravitation", "next": "universal-gravitation" }
+    ],
+    "distance": [
+      { "text": "Distance (2D)", "value": "sqrt(([x2]-[x1])^2 + ([y2]-[y1])^2)" },
+      { "text": "Distance (3D)", "value": "sqrt(([x2]-[x1])^2 + ([y2]-[y1])^2 + ([z2]-[z1])^2)" }
+    ],
+    "transit-depth": [
+      { "text": "Planet radius (km)", "value": "([star_radius] * sqrt([transit_depth]))" },
+      { "text": "Star radius (km)", "value": "([planet_radius] / sqrt([transit_depth]))" },
+      { "text": "Transit depth (ratio)", "value": "(([planet_radius] / [star_radius])^2)" }
+    ],
+    "stellar-flux": [
+      { "text": "Flux at distance (W/m²)", "value": "([luminosity] / (4 * π * [distance]^2))" },
+      { "text": "Luminosity from flux (W)", "value": "([flux] * 4 * π * [distance]^2)" },
+      { "text": "Distance from flux (m)", "value": "(sqrt([luminosity] / (4 * π * [flux])))" }
+    ],
+    "equillibrium-temperature": [
+      { "text": "Equilibrium temp (K)", "value": "([star_temperature] * sqrt([star_radius] / (2 * [orbital_distance])) * (1 - [albedo])^(1/4))" },
+      { "text": "Star temperature (K)", "value": "([equilibrium_temp] / (sqrt([star_radius] / (2 * [orbital_distance])) * (1 - [albedo])^(1/4)))" },
+      { "text": "Orbital distance (AU)", "value": "([star_radius] * [star_temperature]^2 / (4 * [equilibrium_temp]^2 * (1 - [albedo])^(1/2)))" },
+      { "text": "Albedo from temp", "value": "(1 - ([equilibrium_temp] / ([star_temperature] * sqrt([star_radius] / (2 * [orbital_distance]))))^4)" }
+    ],
+    "surface-gravity": [
+      { "text": "Surface gravity (m/s²)", "value": "(gravitational constant * [mass] / [radius]^2)" },
+      { "text": "Mass from gravity (kg)", "value": "([gravity] * [radius]^2 / gravitational constant)" },
+      { "text": "Radius from gravity (m)", "value": "(sqrt(gravitational constant * [mass] / [gravity]))" }
+    ],
+    "mean-density": [
+      { "text": "Density (kg/m³)", "value": "([mass] / ((4/3) * π * [radius]^3))" },
+      { "text": "Mass from density (kg)", "value": "([density] * (4/3) * π * [radius]^3)" },
+      { "text": "Radius from density (m)", "value": "((3 * [mass] / (4 * π * [density]))^(1/3))" }
+    ],
+    "radial-velo": [
+      { "text": "Radial velocity (m/s)", "value": "([planet_mass] * sin([inclination]) / sqrt([star_mass])) * sqrt(gravitational constant / ([orbit_radius]))" },
+      { "text": "Planet mass (kg)", "value": "([radial_velocity] * sqrt([star_mass]) * sqrt([orbit_radius] / gravitational constant) / sin([inclination]))" },
+      { "text": "Star mass (kg)", "value": "(([radial_velocity] / ([planet_mass] * sin([inclination])))^2 * [orbit_radius] / gravitational constant)" },
+      { "text": "Orbit radius (AU)", "value": "(gravitational constant * [star_mass] * ([planet_mass] * sin([inclination]) / [radial_velocity])^2)" }
+    ],
+    "atmo-height": [
+      { "text": "Scale height (km)", "value": "(([temperature] * 8.314) / ([gravity] * [molecular_weight]))" },
+      { "text": "Temperature (K)", "value": "([scale_height] * [gravity] * [molecular_weight] / 8.314)" },
+      { "text": "Molecular weight (g/mol)", "value": "([temperature] * 8.314 / ([gravity] * [scale_height]))" },
+      { "text": "Gravity (m/s²)", "value": "([temperature] * 8.314 / ([scale_height] * [molecular_weight]))" }
+    ],
+    "orbit-per": [
+      { "text": "Orbital period (days)", "value": "(2 * π * sqrt([distance]^3 / (gravitational constant * ([mass1] + [mass2]))))" },
+      { "text": "Distance from period (AU)", "value": "(([period]^2 * gravitational constant * ([mass1] + [mass2]) / (4 * π^2))^(1/3))" },
+      { "text": "Combined mass (kg)", "value": "((4 * π^2 * [distance]^3) / (gravitational constant * [period]^2))" }
+    ],
+    "circular-velocity": [
+      { "text": "Circular velocity (km/s)", "value": "(sqrt(gravitational constant * [mass] / [radius]))" },
+      { "text": "Mass from velocity (kg)", "value": "([velocity]^2 * [radius] / gravitational constant)" },
+      { "text": "Radius from velocity (km)", "value": "(gravitational constant * [mass] / [velocity]^2)" }
+    ],
+    "orbital-eccentricity": [
+      { "text": "Eccentricity (ratio)", "value": "(sqrt(1 - (([semi_minor]^2) / ([semi_major]^2))))" },
+      { "text": "Semi-major axis (AU)", "value": "([semi_minor] / sqrt(1 - [eccentricity]^2))" },
+      { "text": "Semi-minor axis (AU)", "value": "([semi_major] * sqrt(1 - [eccentricity]^2))" }
+    ],
+    "apastron": [
+      { "text": "Apastron distance (AU)", "value": "([semimajor_axis] * (1 + [eccentricity]))" },
+      { "text": "Semi-major axis (AU)", "value": "([apastron] / (1 + [eccentricity]))" },
+      { "text": "Eccentricity from apastron", "value": "(([apastron] / [semimajor_axis]) - 1)" }
+    ],
+    "periastron": [
+      { "text": "Periastron distance (AU)", "value": "([semimajor_axis] * (1 - [eccentricity]))" },
+      { "text": "Semi-major axis (AU)", "value": "([periastron] / (1 - [eccentricity]))" },
+      { "text": "Eccentricity from periastron", "value": "(1 - ([periastron] / [semimajor_axis]))" }
+    ],
+    "kepler-third": [
+      { "text": "Orbital period (years)", "value": "(sqrt([semimajor_axis]^3))" },
+      { "text": "Semi-major axis (AU)", "value": "([period]^(2/3))" }
+    ],
+    "escape-velocity": [
+      { "text": "Escape velocity (km/s)", "value": "(sqrt(2 * gravitational constant * [mass] / [radius]))" },
+      { "text": "Mass from velocity (kg)", "value": "([escape_velocity]^2 * [radius] / (2 * gravitational constant))" },
+      { "text": "Radius from velocity (km)", "value": "(2 * gravitational constant * [mass] / [escape_velocity]^2)" }
+    ],
+    "small-angle": [
+      { "text": "Angular diameter (arcsec)", "value": "(([actual_diameter] / [distance]) * radians to arcsecond)" },
+      { "text": "Actual diameter (km)", "value": "(([angular_diameter] / radians to arcsecond) * [distance])" },
+      { "text": "Distance (pc)", "value": "([actual_diameter] / ([angular_diameter] / radians to arcsecond))" }
+    ],
+    "resolving-power": [
+      { "text": "Angular resolution (arcsec)", "value": "(1.22 * [wavelength] / [aperture_diameter] * radians to arcsecond)" },
+      { "text": "Wavelength (nm)", "value": "([angular_resolution] / radians to arcsecond * [aperture_diameter] / 1.22)" },
+      { "text": "Aperture diameter (m)", "value": "(1.22 * [wavelength] / ([angular_resolution] / radians to arcsecond))" }
+    ],
+    "magnification": [
+      { "text": "Magnification (ratio)", "value": "([objective_focal_length] / [eyeπece_focal_length])" },
+      { "text": "Objective focal length (mm)", "value": "([magnification] * [eyeπece_focal_length])" },
+      { "text": "Eyeπece focal length (mm)", "value": "([objective_focal_length] / [magnification])" }
+    ],
+    "wiens-law": [
+      { "text": "Peak wavelength (nm)", "value": "(wein disp constant / [temperature] * 1e9)" },
+      { "text": "Temperature (K)", "value": "(wein disp constant / ([wavelength] * 1e-9))" }
+    ],
+    "stefan-boltzmann": [
+      { "text": "Luminosity (W)", "value": "(4 * π * [radius]^2 * stefan const * [temperature]^4)" },
+      { "text": "Temperature (K)", "value": "(([luminosity] / (4 * π * [radius]^2 * stefan const))^(1/4))" },
+      { "text": "Radius (m)", "value": "(sqrt([luminosity] / (4 * π * stefan const * [temperature]^4)))" }
+    ],
+    "inverse-square": [
+      { "text": "Flux (W/m²)", "value": "([luminosity] / (4 * π * [distance]^2))" },
+      { "text": "Luminosity (W)", "value": "([flux] * 4 * π * [distance]^2)" },
+      { "text": "Distance (m)", "value": "(sqrt([luminosity] / (4 * π * [flux])))" }
+    ],
+    "absolute-magnitude": [
+      { "text": "Absolute magnitude", "value": "([apparent_magnitude] - 5 * log([distance]) / log(10) + 5)" },
+      { "text": "Apparent magnitude", "value": "([absolute_magnitude] + 5 * log([distance]) / log(10) - 5)" },
+      { "text": "Distance (pc)", "value": "(10^(([apparent_magnitude] - [absolute_magnitude] + 5) / 5))" }
+    ],
+    "distance-modulus": [
+      { "text": "Distance modulus", "value": "([apparent_magnitude] - [absolute_magnitude])" },
+      { "text": "Distance (pc)", "value": "(10^(([distance_modulus] + 5) / 5))" },
+      { "text": "Apparent magnitude", "value": "([absolute_magnitude] + [distance_modulus])" },
+      { "text": "Absolute magnitude", "value": "([apparent_magnitude] - [distance_modulus])" }
+    ],
+    "parallax": [
+      { "text": "Distance (pc)", "value": "(1 / [parallax])" },
+      { "text": "Parallax (arcsec)", "value": "(1 / [distance])" }
+    ],
+    "doppler-formula": [
+      { "text": "Redshift (z)", "value": "(([observed_wavelength] - [emitted_wavelength]) / [emitted_wavelength])" },
+      { "text": "Observed wavelength (nm)", "value": "([emitted_wavelength] * (1 + [redshift]))" },
+      { "text": "Emitted wavelength (nm)", "value": "([observed_wavelength] / (1 + [redshift]))" }
+    ],
+    "recessional-velocity": [
+      { "text": "Velocity (km/s)", "value": "([hubble constant] * [distance])" },
+      { "text": "Distance (Mpc)", "value": "([velocity] / [hubble constant])" }
+    ],
+    "relativistic-doppler": [
+      { "text": "Relativistic redshift", "value": "(sqrt((1 + [velocity] / speed of light) / (1 - [velocity] / speed of light)) - 1)" },
+      { "text": "Velocity (km/s)", "value": "(speed of light * ((([redshift] + 1)^2 - 1) / (([redshift] + 1)^2 + 1)) / 1000)" }
+    ],
+    "mass-luminosity": [
+      { "text": "Luminosity (L☉)", "value": "(([mass] / solar mass in kg)^(3.5))" },
+      { "text": "Mass (M☉)", "value": "(([luminosity])^(1/3.5))" }
+    ],
+    "stellar-lifetime": [
+      { "text": "Lifetime (Gyr)", "value": "(10 * ([mass] / solar mass in kg)^(-2.5))" },
+      { "text": "Mass (M☉)", "value": "(([lifetime] / 10)^(-1/2.5))" }
+    ],
+    "schwarzschild-radius": [
+      { "text": "Schwarzschild radius (km)", "value": "((2 * gravitational constant * [mass]) / (speed of light^2) / 1000)" },
+      { "text": "Mass (kg)", "value": "(([schwarzschild_radius] * 1000 * speed of light^2) / (2 * gravitational constant))" }
+    ],
+    "universal-gravitation": [
+      { "text": "Force (N)", "value": "(gravitational constant * [mass1] * [mass2] / [distance]^2)" },
+      { "text": "Mass 1 (kg)", "value": "([force] * [distance]^2 / (gravitational constant * [mass2]))" },
+      { "text": "Mass 2 (kg)", "value": "([force] * [distance]^2 / (gravitational constant * [mass1]))" },
+      { "text": "Distance (m)", "value": "(sqrt(gravitational constant * [mass1] * [mass2] / [force]))" }
+    ]
+  }
+}
+
+

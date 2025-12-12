@@ -12,6 +12,9 @@ import {
   Delete,
 } from "lucide-react";
 
+import constantsData from "../../constants/constants.json";
+import formulasData from "../../constants/Formulas.json";
+
 const MathQuillField = dynamic(
   () =>
     import("@/components/mathquill-field").then((m) => m.MathQuillField),
@@ -36,12 +39,11 @@ type ConstantDef = {
   value: number;
 };
 
-type FormulaDef = {
-  id: string;
-  label: string;
-  latex: string;
-  previewLatex?: string;
-};
+type FormulaTreeItem =
+  | { text: string; next: string; value?: never }
+  | { text: string; value: string; next?: never };
+
+type FormulaTree = Record<string, FormulaTreeItem[]>;
 
 type MQFieldApi = {
   focus: () => void;
@@ -50,8 +52,6 @@ type MQFieldApi = {
   latex: () => string;
   text: () => string;
 };
-
-const CONST_ID_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
 const FUNCTION_NAMES = [
   "asin",
@@ -89,6 +89,47 @@ const FUNCTION_NAMES = [
   "combinations",
   "permutations",
 ];
+
+function escapeRegExp(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function stripWhitespaceOutsideStrings(s: string) {
+  let out = "";
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (inString) {
+      out += ch;
+      if (escaped) {
+        escaped = false;
+      } else if (ch === "\\") {
+        escaped = true;
+      } else if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      out += ch;
+      continue;
+    }
+    if (/\s/.test(ch)) continue;
+    out += ch;
+  }
+  return out;
+}
+
+function isValidConstEmbedKey(key: string) {
+  const k = String(key);
+  if (!k.trim()) return false;
+  // MathQuill embed ids are serialized inside `[...]`; disallow `]` to avoid breaking.
+  if (k.includes("]")) return false;
+  if (k.includes("\n") || k.includes("\r")) return false;
+  return true;
+}
 
 function insertImplicitFunctionCalls(expr: string) {
   // Allow calculator-style function calls without parentheses:
@@ -184,20 +225,47 @@ function latexToExpression(latex: string) {
     let idx = out.indexOf("\\frac");
     while (idx !== -1) {
       let pos = idx + "\\frac".length;
-      const num = parseBraceGroup(out, pos);
+
+      // MathQuill commonly emits both:
+      // - \frac{a}{b}
+      // - \frac ab  (aka \frac12 / \frac32)  <-- no braces for single-token args
+      // Support both forms.
+      // Parse a single fraction argument token.
+      // Important: for shorthand \frac12 / \frac32, MathQuill means "1 over 2",
+      // not "12 over <missing>" — so we must consume ONE "atom" per arg.
+      const parseFracArg = (str: string, start: number) => {
+        let i = start;
+        while (i < str.length && /\s/.test(str[i]!)) i++;
+        const ch = str[i];
+        if (!ch) return null;
+        if (ch === "{") return parseBraceGroup(str, i);
+        // Single LaTeX command token like \pi, \theta, etc.
+        if (ch === "\\") {
+          let j = i + 1;
+          while (j < str.length && /[a-zA-Z]/.test(str[j]!)) j++;
+          if (j === i + 1) return null;
+          return { content: str.slice(i, j), end: j };
+        }
+        // Otherwise, consume exactly one character ("atom") for shorthand \fracab.
+        return { content: ch, end: i + 1 };
+      };
+
+      const num = parseFracArg(out, pos);
       if (!num) {
         idx = out.indexOf("\\frac", idx + 1);
         continue;
       }
       pos = num.end;
-      const den = parseBraceGroup(out, pos);
+      const den = parseFracArg(out, pos);
       if (!den) {
         idx = out.indexOf("\\frac", idx + 1);
         continue;
       }
       const replacement = `((${num.content})/(${den.content}))`;
       out = out.slice(0, idx) + replacement + out.slice(den.end);
-      idx = out.indexOf("\\frac", idx + replacement.length);
+      // Re-scan starting at the replacement location so we also catch nested \frac
+      // occurrences that were inside the original numerator/denominator.
+      idx = out.indexOf("\\frac", idx);
     }
     return out;
   };
@@ -264,10 +332,12 @@ function latexToExpression(latex: string) {
   });
 
   // Convert MathQuill embeds used for constants:
-  //   \embed{const}[k]  => k
+  //   \embed{const}[speed of light]  => __const("speed of light")
   replaceLoop(/\\embed\{const\}\[([^\]]+)\]/g, (_m, id) => {
     const key = String(id);
-    return CONST_ID_RE.test(key) ? key : "const";
+    // Use a function call so typed identifiers don't magically become constants.
+    // Keep it a string so we can support keys with spaces and punctuation.
+    return `__const(${JSON.stringify(key)})`;
   });
 
   expr = expr
@@ -297,22 +367,106 @@ function latexToExpression(latex: string) {
     .replace(/\\sum/g, "sum")
     .replace(/\\prod/g, "prod")
     .replace(/\\int/g, "int")
-    .replace(/\s+/g, "");
+    // Preserve string literal contents (used by __const("...")).
+    ;
 
-  // Powers like x^{2}
-  expr = expr.replace(
-    /([0-9a-zA-Z).]+)\^\{([^{}]+)\}/g,
-    (_m, base, power) => `(${base})^(${power})`
-  );
+  // Powers like:
+  // - x^{2}
+  // - (x+1)^{1/2}
+  // - (pi*5)^{\frac{1}{2}}
+  // Avoid regex here because bases are often parenthesized expressions and can
+  // contain operators like `*` (e.g. `(pi*5)`), which would break a simple match.
+  const replaceAllPowers = (s: string) => {
+    let out = s;
+    let i = 0;
+
+    const isIdentChar = (ch: string) => /[0-9a-zA-Z._]/.test(ch);
+
+    const findMatchingOpen = (
+      str: string,
+      closeIdx: number,
+      openCh: string,
+      closeCh: string
+    ) => {
+      let depth = 0;
+      for (let j = closeIdx; j >= 0; j--) {
+        const ch = str[j];
+        if (ch === closeCh) depth++;
+        else if (ch === openCh) depth--;
+        if (depth === 0) return j;
+      }
+      return -1;
+    };
+
+    while (i < out.length) {
+      const caret = out.indexOf("^{", i);
+      if (caret === -1) break;
+
+      // Parse the braced exponent group (starts at "{").
+      const powerGroup = parseBraceGroup(out, caret + 1);
+      if (!powerGroup) {
+        i = caret + 2;
+        continue;
+      }
+
+      const baseEnd = caret; // exclusive
+      if (baseEnd <= 0) {
+        i = powerGroup.end;
+        continue;
+      }
+
+      let baseStart = baseEnd - 1;
+      const last = out[baseStart];
+
+      if (last === ")") {
+        const openIdx = findMatchingOpen(out, baseStart, "(", ")");
+        if (openIdx === -1) {
+          i = powerGroup.end;
+          continue;
+        }
+        baseStart = openIdx;
+      } else if (last === "]") {
+        const openIdx = findMatchingOpen(out, baseStart, "[", "]");
+        if (openIdx === -1) {
+          i = powerGroup.end;
+          continue;
+        }
+        baseStart = openIdx;
+      } else if (last === "}") {
+        const openIdx = findMatchingOpen(out, baseStart, "{", "}");
+        if (openIdx === -1) {
+          i = powerGroup.end;
+          continue;
+        }
+        baseStart = openIdx;
+      } else {
+        // Grab a contiguous identifier/number token.
+        while (baseStart - 1 >= 0 && isIdentChar(out[baseStart - 1])) {
+          baseStart--;
+        }
+      }
+
+      const base = out.slice(baseStart, baseEnd);
+      const power = powerGroup.content;
+      const replacement = `(${base})^(${power})`;
+      out = out.slice(0, baseStart) + replacement + out.slice(powerGroup.end);
+      i = baseStart + replacement.length;
+    }
+
+    return out;
+  };
+
+  expr = replaceAllPowers(expr);
 
   // Strip remaining braces.
   expr = expr.replace(/[{}]/g, "");
-  return expr;
+  const finalExpr = stripWhitespaceOutsideStrings(expr);
+
+  return finalExpr;
 }
 
 function normalizeExpression(text: string) {
-  let out = text
-    .replace(/\s+/g, "")
+  let out = stripWhitespaceOutsideStrings(text)
     .replace(/×/g, "*")
     .replace(/÷/g, "/")
     .replace(/π/g, "pi");
@@ -326,6 +480,7 @@ function normalizeExpression(text: string) {
     /([0-9a-zA-Z._()]+)nPr([0-9a-zA-Z._()]+)/g,
     "permutations($1,$2)"
   );
+
   return out;
 }
 
@@ -334,7 +489,9 @@ function toMathExpression(latex: string, text: string) {
   const base = latex ? latexToExpression(latex) : normalizeExpression(text);
   const normalized = normalizeExpression(base);
   const withFnCalls = insertImplicitFunctionCalls(normalized);
-  return insertImplicitMultiplication(withFnCalls);
+  const finalExpr = insertImplicitMultiplication(withFnCalls);
+
+  return finalExpr;
 }
 
 function normalizeNumber(n: number) {
@@ -360,7 +517,7 @@ function resultToLatex(result: unknown) {
 function evaluateLines(
   lines: Line[],
   angleUnit: "deg" | "rad",
-  constants: ConstantDef[]
+  constantsMap: Record<string, number>
 ): Array<{ latex: string; raw: unknown }> {
   const scope: Record<string, unknown> = {};
   // TI-style logs and last answer variable.
@@ -400,16 +557,17 @@ function evaluateLines(
     scope.atan = (x: number) => Number(math.atan(x)) * (180 / Math.PI);
   }
 
-  // User-defined constants
-  for (const c of constants) {
-    if (!CONST_ID_RE.test(c.key)) continue;
-    scope[c.key] = c.value;
-  }
+  // Badge-only constants: only \embed{const}[...] inserts compile to __const("...").
+  scope.__const = (name: unknown) => {
+    const k = String(name);
+    if (!(k in constantsMap)) throw new Error("Unknown constant");
+    return constantsMap[k];
+  };
 
   const out: Array<{ latex: string; raw: unknown }> = [];
   let lastAns: unknown = 0;
   for (const line of lines) {
-    const expr = normalizeExpression(line.text);
+    const expr = line.text;
     if (!expr) {
       out.push({ latex: "", raw: "" });
       continue;
@@ -417,6 +575,7 @@ function evaluateLines(
     try {
       scope.ans = lastAns;
       scope.Ans = lastAns;
+
       let res = math.evaluate(expr, scope);
       // If the user enters a bare function name (e.g. `sin`),
       // mathjs returns a function object. Rendering it is noisy and can
@@ -428,12 +587,63 @@ function evaluateLines(
       if (typeof res === "number") res = normalizeNumber(res);
       if (res !== undefined) lastAns = res;
       out.push({ latex: resultToLatex(res), raw: res });
-    } catch {
+    } catch (err) {
       // Keep the result blank for invalid/incomplete inputs.
       out.push({ latex: "", raw: "" });
     }
   }
   return out;
+}
+
+function expressionToLatexWithConstEmbeds(
+  value: string,
+  constantsMap: Record<string, number>
+): string {
+  const constKeys = Object.keys(constantsMap)
+    .filter((k) => isValidConstEmbedKey(k))
+    // Replace longer keys first so we don't partially consume multi-word constants.
+    .sort((a, b) => b.length - a.length);
+
+  const tokenToKey = new Map<string, string>();
+  let tokenIdx = 0;
+  let expr = String(value);
+
+  // Replace bracket placeholders like [radius] -> radius (for mathjs parsing).
+  expr = expr.replace(/\[([^\]]+)\]/g, (_m, inner) => {
+    const id = String(inner).trim().replace(/\s+/g, "_");
+    return id ? id : "x";
+  });
+
+  for (const key of constKeys) {
+    const token = `CONST${tokenIdx++}`;
+    const re = new RegExp(`(?<![A-Za-z0-9_])${escapeRegExp(key)}(?![A-Za-z0-9_])`, "g");
+    const next = expr.replace(re, token);
+    if (next !== expr) {
+      tokenToKey.set(token, key);
+      expr = next;
+    }
+  }
+
+  try {
+    const node = math.parse(expr);
+    let latex = node.toTex({ parenthesis: "keep" });
+    for (const [token, key] of tokenToKey.entries()) {
+      // mathjs may or may not wrap symbols with \mathrm{...}; handle both.
+      const re1 = new RegExp(`\\\\mathrm\\{${escapeRegExp(token)}\\}`, "g");
+      const re2 = new RegExp(`\\b${escapeRegExp(token)}\\b`, "g");
+      latex = latex.replace(re1, `\\embed{const}[${key}]`).replace(re2, `\\embed{const}[${key}]`);
+    }
+    return latex;
+  } catch {
+    // Fallback: if parsing fails, insert a minimally-sanitized expression.
+    // We still swap in const embeds so evaluation works.
+    let out = expr;
+    for (const [token, key] of tokenToKey.entries()) {
+      const re = new RegExp(`\\b${escapeRegExp(token)}\\b`, "g");
+      out = out.replace(re, `\\embed{const}[${key}]`);
+    }
+    return out;
+  }
 }
 
 export default function Home() {
@@ -620,51 +830,30 @@ export default function Home() {
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [undoOnce]);
 
-  const [constants, setConstants] = useState<ConstantDef[]>([
-    { key: "k", label: "Coulomb constant (example)", value: 8.9875517923e9 },
-    { key: "g", label: "Gravity (m/s^2)", value: 9.80665 },
-    { key: "R", label: "Gas constant", value: 8.314462618 },
-    { key: "c0", label: "Speed of light", value: 299792458 },
-  ]);
+  const CONSTANTS_MAP = (constantsData as unknown as { CONSTANTS_MAP: Record<string, number> })
+    .CONSTANTS_MAP;
 
-  const formulas = useMemo<FormulaDef[]>(
-    () => [
-      {
-        id: "quadratic",
-        label: "Quadratic formula",
-        latex: "x=\\frac{-b\\pm\\sqrt{b^{2}-4ac}}{2a}",
-      },
-      {
-        id: "distance",
-        label: "Distance (2D)",
-        latex: "d=\\sqrt{(x_{2}-x_{1})^{2}+(y_{2}-y_{1})^{2}}",
-      },
-      {
-        id: "pythagorean",
-        label: "Pythagorean theorem",
-        latex: "c=\\sqrt{a^{2}+b^{2}}",
-      },
-      {
-        id: "euler",
-        label: "Euler's formula",
-        latex: "e^{i\\theta}=\\cos\\left(\\theta\\right)+i\\sin\\left(\\theta\\right)",
-        previewLatex: "e^{i\\theta}=\\cos\\left(\\theta\\right)+i\\sin\\left(\\theta\\right)",
-      },
-      {
-        id: "derivative",
-        label: "Derivative template",
-        latex: "\\frac{d}{dx}\\left(\\right)",
-        previewLatex: "\\frac{d}{dx}\\left(f\\left(x\\right)\\right)",
-      },
-      {
-        id: "integral",
-        label: "Integral template",
-        latex: "\\int_{}^{}\\left(\\right)dx",
-        previewLatex: "\\int_{a}^{b}f\\left(x\\right)dx",
-      },
-    ],
-    []
-  );
+  const FORMULA_TREE = (formulasData as unknown as { POPUP_TREE: FormulaTree }).POPUP_TREE;
+
+  const [constants, setConstants] = useState<ConstantDef[]>(() => {
+    const entries = Object.entries(CONSTANTS_MAP ?? {});
+    entries.sort(([a], [b]) => a.localeCompare(b));
+    return entries.map(([key, value]) => ({ key, label: "", value }));
+  });
+
+  const constantsMapForEval = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const c of constants) {
+      if (!isValidConstEmbedKey(c.key)) continue;
+      m[c.key] = c.value;
+    }
+    return m;
+  }, [constants]);
+
+  const [formulaNav, setFormulaNav] = useState<Array<{ id: string; title: string }>>([
+    { id: "root", title: "Formulas" },
+  ]);
+  const [formulaSearch, setFormulaSearch] = useState("");
 
   const addConstant = useCallback(() => {
     setConstants((prev) => {
@@ -695,10 +884,10 @@ export default function Home() {
     );
   }, []);
 
-  const results = useMemo(() => evaluateLines(lines, angleUnit, constants), [
+  const results = useMemo(() => evaluateLines(lines, angleUnit, constantsMapForEval), [
     lines,
     angleUnit,
-    constants,
+    constantsMapForEval,
   ]);
 
   const updateLine = useCallback(
@@ -798,6 +987,50 @@ export default function Home() {
     []
   );
 
+  const insertConstantBadge = useCallback(
+    (key: string) => {
+      if (!isValidConstEmbedKey(key)) return;
+      writeToActive(`\\embed{const}[${key}] `);
+    },
+    [writeToActive]
+  );
+
+  const currentFormulaNode = formulaNav[formulaNav.length - 1]?.id ?? "root";
+  const currentFormulaItems = (FORMULA_TREE[currentFormulaNode] ?? []) as FormulaTreeItem[];
+
+  const allFormulaLeaves = useMemo(() => {
+    const leaves: Array<{ path: string[]; text: string; value: string }> = [];
+    const seen = new Set<string>();
+
+    function walk(nodeId: string, pathTitles: string[]) {
+      if (seen.has(nodeId)) return;
+      seen.add(nodeId);
+      const items = FORMULA_TREE[nodeId] ?? [];
+      for (const it of items) {
+        if ("value" in it) {
+          leaves.push({ path: pathTitles, text: it.text, value: it.value });
+        } else if ("next" in it) {
+          walk(it.next, [...pathTitles, it.text]);
+        }
+      }
+    }
+
+    walk("root", []);
+    return leaves;
+  }, [FORMULA_TREE]);
+
+  const filteredLeafResults = useMemo(() => {
+    const q = formulaSearch.trim().toLowerCase();
+    if (!q) return [];
+    return allFormulaLeaves
+      .filter((l) => {
+        const label = l.text.toLowerCase();
+        const path = l.path.join(" / ").toLowerCase();
+        return label.includes(q) || path.includes(q);
+      })
+      .slice(0, 80);
+  }, [allFormulaLeaves, formulaSearch]);
+
   useEffect(() => {
     // Keep the calculator left-anchored while animating so it doesn't "grow from center".
     // Once the constants window is fully closed, re-center the calculator window.
@@ -850,7 +1083,7 @@ export default function Home() {
                     size="sm"
                     variant={angleUnit === "rad" ? "default" : "ghost"}
                     onClick={() => setAngleUnit("rad")}
-                    className={angleUnit === "rad" ? "shadow-sm" : undefined}
+                    className={angleUnit === "rad" ? "shadow-sm opacity-50" : undefined}
                   >
                     RAD
                   </Button>
@@ -1222,25 +1455,123 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="flex-1 overflow-auto pr-1 space-y-2">
-              {formulas.map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  className="w-full text-left rounded-md border border-foreground/15 bg-white/15 text-white p-3 space-y-2 shadow-[0_4px_12px_0_rgba(0,0,0,0.15)] hover:bg-white/20 transition-colors"
-                  onClick={() => writeToActive(f.latex)}
+            <div className="shrink-0 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setFormulaNav((prev) =>
+                      prev.length > 1 ? prev.slice(0, -1) : prev
+                    );
+                  }}
+                  disabled={formulaNav.length <= 1}
                 >
-                  <div className="text-sm font-medium">{f.label}</div>
-                  <div className="text-lg text-foreground/90">
-                    <StaticMathField>
-                      {f.previewLatex ?? f.latex}
-                    </StaticMathField>
-                  </div>
-                </button>
-              ))}
-              {formulas.length === 0 ? (
-                <div className="text-sm text-foreground/60">No formulas yet.</div>
-              ) : null}
+                  Back
+                </Button>
+                <div className="min-w-0 flex-1 text-xs text-foreground/70 truncate">
+                  {formulaNav
+                    .map((n, idx) => (idx === 0 ? "root" : n.title))
+                    .join(" / ")}
+                </div>
+              </div>
+
+              <input
+                className="w-full rounded-md border border-foreground/15 bg-white/10 px-2 py-1 text-sm shadow-[inset_0_4px_12px_0_rgba(0,0,0,0.15)]"
+                value={formulaSearch}
+                onChange={(e) => setFormulaSearch(e.target.value)}
+                placeholder="Search formulas…"
+              />
+            </div>
+
+            <div className="flex-1 overflow-auto pr-1 space-y-2">
+              {formulaSearch.trim() ? (
+                filteredLeafResults.length === 0 ? (
+                  <div className="text-sm text-foreground/60">No matches.</div>
+                ) : (
+                  filteredLeafResults.map((leaf, idx) => {
+                    const latex = expressionToLatexWithConstEmbeds(
+                      leaf.value,
+                      constantsMapForEval
+                    );
+                    return (
+                      <button
+                        key={`${leaf.path.join("/")}:${leaf.text}:${idx}`}
+                        type="button"
+                        className="w-full text-left rounded-md border border-foreground/15 bg-white/15 text-white p-3 space-y-2 shadow-[0_4px_12px_0_rgba(0,0,0,0.15)] hover:bg-white/20 transition-colors"
+                        onClick={() => writeToActive(latex)}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="text-sm font-medium">{leaf.text}</div>
+                          <div className="text-[11px] text-foreground/60 text-right">
+                            {leaf.path.join(" / ")}
+                          </div>
+                        </div>
+                        <div className="text-lg text-foreground/90">
+                          <StaticMathField>{latex}</StaticMathField>
+                        </div>
+                      </button>
+                    );
+                  })
+                )
+              ) : currentFormulaItems.length === 0 ? (
+                <div className="text-sm text-foreground/60">
+                  Empty category (or missing node): <span className="font-mono">{currentFormulaNode}</span>
+                </div>
+              ) : (
+                currentFormulaItems.map((it, idx) => {
+                  if ("next" in it) {
+                    const hasNode = Array.isArray(FORMULA_TREE[it.next]);
+                    return (
+                      <button
+                        key={`${it.next}:${idx}`}
+                        type="button"
+                        className="w-full text-left rounded-md border border-foreground/15 bg-white/15 text-white p-3 shadow-[0_4px_12px_0_rgba(0,0,0,0.15)] hover:bg-white/20 transition-colors"
+                        onClick={() => {
+                          setFormulaNav((prev) => [...prev, { id: it.next, title: it.text }]);
+                        }}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="text-sm font-medium">{it.text}</div>
+                          <div className="text-xs text-foreground/60">
+                            {hasNode ? "Open" : "Missing"}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  }
+
+                  const latex = expressionToLatexWithConstEmbeds(
+                    it.value,
+                    constantsMapForEval
+                  );
+                  const disabled = String(it.value).trim().toLowerCase() === "stop";
+                  return (
+                    <button
+                      key={`${it.text}:${idx}`}
+                      type="button"
+                      disabled={disabled}
+                      className={[
+                        "w-full text-left rounded-md border border-foreground/15 bg-white/15 text-white p-3 space-y-2 shadow-[0_4px_12px_0_rgba(0,0,0,0.15)] transition-colors",
+                        disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-white/20",
+                      ].join(" ")}
+                      onClick={() => {
+                        if (disabled) return;
+                        writeToActive(latex);
+                      }}
+                    >
+                      <div className="text-sm font-medium">{it.text}</div>
+                      {!disabled ? (
+                        <div className="text-lg text-foreground/90">
+                          <StaticMathField>{latex}</StaticMathField>
+                        </div>
+                      ) : (
+                        <div className="text-sm text-foreground/60">Not available yet.</div>
+                      )}
+                    </button>
+                  );
+                })
+              )}
             </div>
           </CardContent>
         </Card>
@@ -1275,16 +1606,31 @@ export default function Home() {
                   className="rounded-md border border-foreground/15 bg-white/15 text-white p-2 space-y-2 shadow-[0_4px_12px_0_rgba(0,0,0,0.15)]"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <div className="text-sm font-medium">
-                      {CONST_ID_RE.test(c.key) ? c.key : "(invalid key)"}
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium truncate">{c.key}</div>
+                      {!isValidConstEmbedKey(c.key) ? (
+                        <div className="text-xs text-foreground/60">
+                          Invalid key (can’t insert as badge)
+                        </div>
+                      ) : null}
                     </div>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => removeConstant(c.key)}
-                    >
-                      Remove
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={!isValidConstEmbedKey(c.key)}
+                        onClick={() => insertConstantBadge(c.key)}
+                      >
+                        Insert
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => removeConstant(c.key)}
+                      >
+                        Remove
+                      </Button>
+                    </div>
                   </div>
                   <label className="block text-xs text-foreground/60">Label</label>
                   <input
