@@ -18,11 +18,14 @@ export type MathQuillFieldProps = {
   onChange: (latex: string, text: string) => void;
   onEnter: () => void;
   onFocus: () => void;
+  onBackspaceWhenEmpty?: () => void;
   onMount: (mathField: MathField) => void;
   autoCommands?: string;
   autoOperatorNames?: string;
   constants?: ConstantDef[];
   onUpdateConstant?: (key: string, value: number) => void;
+  wrapperClassName?: string;
+  fieldClassName?: string;
 };
 
 export function MathQuillField({
@@ -30,11 +33,14 @@ export function MathQuillField({
   onChange,
   onEnter,
   onFocus,
+  onBackspaceWhenEmpty,
   onMount,
   autoCommands,
   autoOperatorNames,
   constants,
   onUpdateConstant,
+  wrapperClassName,
+  fieldClassName,
 }: MathQuillFieldProps) {
   const DEFAULT_AUTO_COMMANDS = [
     "pi",
@@ -148,13 +154,25 @@ export function MathQuillField({
     setPickerPos(null);
   }
 
-  function openPickerNearCursor() {
+  function computePickerPos() {
     const root = wrapperRef.current;
     if (!root) return;
     const cursorEl = root.querySelector<HTMLElement>(".mq-cursor");
-    const anchor = cursorEl ?? root;
+    const mqRoot = root.querySelector<HTMLElement>(".mq-root-block");
+    const anchor = cursorEl ?? mqRoot ?? root;
     const r = anchor.getBoundingClientRect();
-    setPickerPos({ top: r.bottom + 6, left: r.left });
+    const rootRect = root.getBoundingClientRect();
+    // Use wrapper-relative coordinates (picker is `position: absolute`).
+    // This avoids "drift" when an ancestor creates a new containing block for fixed
+    // positioning (e.g. via transforms/filters).
+    const left = Math.max(8, r.left - rootRect.left);
+    const top = Math.max(8, r.bottom - rootRect.top + 6);
+    return { top, left };
+  }
+
+  function openPickerNearCursor() {
+    const pos = computePickerPos();
+    if (pos) setPickerPos(pos);
     setPickerOpen(true);
     setPickerQuery("");
     setPickerIndex(0);
@@ -219,7 +237,7 @@ export function MathQuillField({
         MQ.registerEmbed("const", (id) => {
           const key = typeof id === "string" && CONST_ID_RE.test(id) ? id : "const";
           const pillClass =
-            "mq-const-embed inline-flex items-center rounded-full border border-foreground/20 bg-foreground/5 px-2 py-0.5 text-xs font-medium text-foreground align-middle select-none";
+            "mq-const-embed inline-flex flex-wrap items-center justify-center rounded-full border border-white/10 bg-white/10 px-[3px] py-0 text-[18px] leading-[18px] font-medium text-foreground text-center align-middle select-none box-border min-h-5 min-w-5 shadow-[inset_0px_0px_4px_0px_rgba(0,0,0,0.23)] [border-image:none]";
 
           // IMPORTANT: never interpolate untrusted HTML here. `key` is strictly validated.
           return {
@@ -239,6 +257,17 @@ export function MathQuillField({
 
   useEffect(() => {
     if (!pickerOpen) return;
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const pos = computePickerPos();
+      if (pos) setPickerPos(pos);
+    };
+    const scheduleUpdate = () => {
+      if (raf) return;
+      raf = window.requestAnimationFrame(update);
+    };
+
     function onDocMouseDown(e: MouseEvent) {
       const root = wrapperRef.current;
       if (!root) return;
@@ -246,7 +275,22 @@ export function MathQuillField({
       closePicker();
     }
     document.addEventListener("mousedown", onDocMouseDown);
-    return () => document.removeEventListener("mousedown", onDocMouseDown);
+
+    // Keep the picker pinned to the field/cursor even if:
+    // - the calculator resizes (side drawers open/close)
+    // - any ancestor scroll container scrolls
+    // - the viewport resizes
+    window.addEventListener("resize", scheduleUpdate);
+    document.addEventListener("scroll", scheduleUpdate, true);
+    // Initial correction on next frame (after layout settles)
+    scheduleUpdate();
+
+    return () => {
+      document.removeEventListener("mousedown", onDocMouseDown);
+      window.removeEventListener("resize", scheduleUpdate);
+      document.removeEventListener("scroll", scheduleUpdate, true);
+      if (raf) window.cancelAnimationFrame(raf);
+    };
   }, [pickerOpen]);
 
   useEffect(() => {
@@ -273,7 +317,7 @@ export function MathQuillField({
   return (
     <div
       ref={wrapperRef}
-      className="relative"
+      className={["relative overflow-visible", wrapperClassName].filter(Boolean).join(" ")}
       onKeyDown={(e) => {
         // Open @-picker.
         if (e.key === "@" && !e.metaKey && !e.ctrlKey && !e.altKey) {
@@ -282,6 +326,23 @@ export function MathQuillField({
           openPickerNearCursor();
           return;
         }
+
+        // Delete the entire line when the field is empty and the user presses Backspace.
+        // (If not empty, let MathQuill handle Backspace normally.)
+        if (!pickerOpen && e.key === "Backspace" && onBackspaceWhenEmpty) {
+          const mf = mfRef.current;
+          const latexNow = mf?.latex?.() ?? "";
+          const textNow = mf?.text?.() ?? "";
+          const isEmpty =
+            latexNow.replace(/\s+/g, "") === "" && textNow.trim().length === 0;
+          if (isEmpty) {
+            e.preventDefault();
+            e.stopPropagation();
+            onBackspaceWhenEmpty();
+            return;
+          }
+        }
+
         if (!pickerOpen) return;
 
         if (e.key === "Escape") {
@@ -328,10 +389,15 @@ export function MathQuillField({
         const key = target.getAttribute("data-const-id") ?? "";
         if (!CONST_ID_RE.test(key)) return;
         const r = target.getBoundingClientRect();
+        const root = wrapperRef.current;
+        const rootRect = root?.getBoundingClientRect();
         e.preventDefault();
         e.stopPropagation();
         setPopoverKey(key);
-        setPopoverPos({ top: r.bottom + 6, left: r.left });
+        setPopoverPos({
+          top: Math.max(8, r.bottom - (rootRect?.top ?? 0) + 6),
+          left: Math.max(8, r.left - (rootRect?.left ?? 0)),
+        });
         const def = safeConstants.find((c) => c.key === key);
         setPopoverValue(def ? String(def.value) : "");
       }}
@@ -375,7 +441,7 @@ export function MathQuillField({
                   const key =
                     typeof id === "string" && CONST_ID_RE.test(id) ? id : "const";
                   const pillClass =
-                    "mq-const-embed inline-flex items-center rounded-full border border-foreground/20 bg-foreground/5 px-2 py-0.5 text-xs font-medium text-foreground align-middle select-none";
+                    "mq-const-embed inline-flex flex-wrap items-center justify-center rounded-full border border-white/10 bg-white/10 px-[3px] py-0 text-[18px] leading-[18px] font-medium text-foreground text-center align-middle select-none box-border min-h-5 min-w-5 shadow-[inset_0px_0px_4px_0px_rgba(0,0,0,0.23)] [border-image:none]";
                   return {
                     htmlString: `<span class="${pillClass}" data-const-id="${key}">${key}</span>`,
                     text: () => key,
@@ -401,18 +467,21 @@ export function MathQuillField({
           autoSubscriptNumerals: true,
           autoCommands: safeAutoCommands,
           autoOperatorNames: safeAutoOperatorNames,
-          maxDepth: 10,
+          maxDepth: 12,
           substituteTextarea: () => document.createElement("textarea"),
           handlers: {
             enter: () => onEnter(),
           },
         }}
-        className="w-full min-h-10 px-2 py-1 rounded-md border border-foreground/15 bg-white/10 bg-none text-lg focus-within:ring-2 focus-within:ring-foreground/20"
+        className={
+          fieldClassName ??
+          "w-full min-h-10 px-2 py-1 rounded-md border border-foreground/15 bg-white/10 bg-none text-lg focus-within:ring-2 focus-within:ring-foreground/20"
+        }
       />
 
       {pickerOpen && pickerPos ? (
         <div
-          className="fixed z-50 w-64 rounded-md border border-foreground/15 bg-background shadow-md"
+          className="absolute z-50 w-64 rounded-md border border-foreground/15 bg-background shadow-md"
           style={{ top: pickerPos.top, left: pickerPos.left }}
           onMouseDown={(e) => {
             // Avoid blur/focus fights with MathQuill.
@@ -457,7 +526,7 @@ export function MathQuillField({
 
       {popoverKey && popoverPos ? (
         <div
-          className="fixed z-50 w-72 rounded-md border border-foreground/15 bg-background shadow-md p-3 space-y-2"
+          className="absolute z-50 w-72 rounded-md border border-foreground/15 bg-background shadow-md p-3 space-y-2"
           style={{ top: popoverPos.top, left: popoverPos.left }}
           onMouseDown={(e) => e.preventDefault()}
         >
