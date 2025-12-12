@@ -374,9 +374,8 @@ export default function Home() {
           </div>
 
           <p className="text-sm text-foreground/60">
-            Type directly: <code>sqrt</code>, <code>integral</code>,{" "}
-            <code>sin</code> auto‑convert. Results update live; Enter adds a new
-            line.
+            Type directly: <code>sqrt</code>, <code>int</code>, <code>sin</code>{" "}
+            auto‑convert. Results update live; Enter adds a new line.
           </p>
         </CardContent>
       </Card>

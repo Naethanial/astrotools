@@ -24,20 +24,20 @@ export function MathQuillField({
   autoCommands,
   autoOperatorNames,
 }: MathQuillFieldProps) {
-  const BUILTIN_NAMES = new Set([
-    // Common MathQuill built-ins that throw if re-declared.
-    "lim",
-    "log",
-    "ln",
-    "exp",
-    "abs",
-    "floor",
-    "ceil",
-    "round",
-    "mod",
-    "gcd",
-    "lcm",
-    "factorial",
+  const DEFAULT_AUTO_COMMANDS = [
+    "pi",
+    "theta",
+    "tau",
+    "phi",
+    "sqrt",
+    "int",
+    "sum",
+    "prod",
+  ].join(" ");
+
+  const DEFAULT_AUTO_OPERATOR_NAMES = [
+    // Custom operator-style names (keep this short).
+    // Functions (typed without a leading backslash)
     "sin",
     "cos",
     "tan",
@@ -53,91 +53,42 @@ export function MathQuillField({
     "asinh",
     "acosh",
     "atanh",
-    "sqrt",
-    "sum",
-    "prod",
-    "integral",
-    "pi",
-    "theta",
-    "tau",
-    "phi",
-  ]);
+    "log",
+    "ln",
+    "exp",
+    "abs",
+    "floor",
+    "ceil",
+    "round",
+    "mod",
+    "gcd",
+    "lcm",
+    "factorial",
+    "combinations",
+    "permutations",
+    "nCr",
+    "nPr",
+  ].join(" ");
 
-  const desiredAutoCommands =
-    autoCommands ??
-    [
-      "sqrt",
-      "pi",
-      "theta",
-      "tau",
-      "phi",
-      "integral",
-      "sum",
-      "prod",
-      "log",
-      "ln",
-      "exp",
-      "abs",
-      "floor",
-      "ceil",
-      "round",
-      "mod",
-      "gcd",
-      "lcm",
-      "factorial",
-      "combinations",
-      "permutations",
-    ].join(" ");
-
-  const desiredAutoOperatorNames =
-    autoOperatorNames ??
-    [
-      "sin",
-      "cos",
-      "tan",
-      "sec",
-      "csc",
-      "cot",
-      "asin",
-      "acos",
-      "atan",
-      "sinh",
-      "cosh",
-      "tanh",
-      "asinh",
-      "acosh",
-      "atanh",
-      "ln",
-      "log",
-      "log10",
-      "log2",
-      "exp",
-      "abs",
-      "floor",
-      "ceil",
-      "round",
-      "mod",
-      "gcd",
-      "lcm",
-      "factorial",
-      "combinations",
-      "permutations",
-      "nCr",
-      "nPr",
-    ].join(" ");
-
-  const safeAutoCommands = desiredAutoCommands
+  const safeAutoCommands = (autoCommands ?? DEFAULT_AUTO_COMMANDS)
     .split(/\s+/)
     .filter(Boolean)
-    .filter((name) => !BUILTIN_NAMES.has(name))
-    .filter((name) => /^[a-zA-Z]+$/.test(name))
+    // MathQuill expects command "names" here (no leading backslash).
+    // Keep built-ins like sqrt/sin/int/etc; only filter invalid tokens.
+    .filter((name) => /^[a-zA-Z][a-zA-Z0-9]*$/.test(name))
+    .filter((name, idx, arr) => arr.indexOf(name) === idx)
     .join(" ");
 
-  const safeAutoOperatorNames = desiredAutoOperatorNames
+  const commandNameSet = new Set(safeAutoCommands.split(/\s+/).filter(Boolean));
+
+  const safeAutoOperatorNames = (autoOperatorNames ?? DEFAULT_AUTO_OPERATOR_NAMES)
     .split(/\s+/)
     .filter(Boolean)
-    .filter((name) => !BUILTIN_NAMES.has(name))
-    .filter((name) => /^[a-zA-Z]+$/.test(name))
+    .filter((name) => /^[a-zA-Z][a-zA-Z0-9]*$/.test(name))
+    .filter((name, idx, arr) => arr.indexOf(name) === idx)
+    // Prevent passing operator names that are already handled as commands,
+    // which avoids the common "built-in operator name" runtime errors.
+    .filter((name) => !commandNameSet.has(name))
     .join(" ");
 
   useEffect(() => {
@@ -168,8 +119,17 @@ export function MathQuillField({
       mathquillDidMount={(mf) => onMount(mf)}
       onFocus={onFocus}
       config={{
+        spaceBehavesLikeTab: true,
+        leftRightIntoCmdGoes: "up",
+        restrictMismatchedBrackets: true,
+        sumStartsWithNEquals: true,
+        supSubsRequireOperand: true,
+        charsThatBreakOutOfSupSub: "+-=<>",
+        autoSubscriptNumerals: true,
         autoCommands: safeAutoCommands,
         autoOperatorNames: safeAutoOperatorNames,
+        maxDepth: 10,
+        substituteTextarea: () => document.createElement("textarea"),
         handlers: {
           enter: () => onEnter(),
         },
