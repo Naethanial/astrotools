@@ -58,6 +58,9 @@ export function MathQuillField({
   wrapperClassName,
   fieldClassName,
 }: MathQuillFieldProps) {
+  const stripConstEmbeds = (s: string) =>
+    String(s).replace(/\\embed\{const\}\[[^\]]*\]/g, "");
+
   const DEFAULT_AUTO_COMMANDS = [
     "pi",
     "theta",
@@ -136,6 +139,8 @@ export function MathQuillField({
       }
   >(null);
 
+  const [constEmbedReady, setConstEmbedReady] = useState(false);
+
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerQuery, setPickerQuery] = useState("");
   const [pickerIndex, setPickerIndex] = useState(0);
@@ -152,6 +157,9 @@ export function MathQuillField({
   const safeConstants = useMemo(() => {
     return (constants ?? []).filter((c) => isValidConstEmbedKey(c.key));
   }, [constants]);
+
+  const hasConstEmbeds = String(latex).includes("\\embed{const}[");
+  const safeLatex = hasConstEmbeds && !constEmbedReady ? stripConstEmbeds(latex) : latex;
 
   const filteredConstants = useMemo(() => {
     const q = pickerQuery.trim().toLowerCase();
@@ -228,7 +236,10 @@ export function MathQuillField({
         MathQuill?: { getInterface?: (v: number) => unknown };
         __mqConstEmbedRegistered?: boolean;
       };
-      if (w.__mqConstEmbedRegistered) return;
+      if (w.__mqConstEmbedRegistered) {
+        setConstEmbedReady(true);
+        return;
+      }
 
       // IMPORTANT:
       // react-mathquill bundles its own MathQuill (@edtr-io/mathquill). Importing the
@@ -265,6 +276,7 @@ export function MathQuillField({
           };
         });
         w.__mqConstEmbedRegistered = true;
+        setConstEmbedReady(true);
       }
     }
     void init();
@@ -421,7 +433,7 @@ export function MathQuillField({
       }}
     >
       <EditableMathField
-        latex={latex}
+        latex={safeLatex}
         onChange={(mf) => {
           if (!mf) return;
           onChange(mf.latex(), mf.text());
@@ -468,6 +480,7 @@ export function MathQuillField({
                   };
                 });
                 w.__mqConstEmbedRegistered = true;
+                setConstEmbedReady(true);
               }
             }
           } catch {

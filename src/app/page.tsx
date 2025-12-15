@@ -54,6 +54,11 @@ type MQFieldApi = {
 };
 
 const FUNCTION_NAMES = [
+  // Internal function used for constant embeds:
+  //   \embed{const}[...] -> __const("...")
+  // Must be treated as a function name so we don't insert implicit multiplication:
+  //   __const("k")  (NOT __const*("k"))
+  "__const",
   "asin",
   "acos",
   "atan",
@@ -504,8 +509,58 @@ function normalizeNumber(n: number) {
   return Number(math.format(n, { precision: 14 }));
 }
 
+function formatNumberForDisplay(n: number): string {
+  if (!Number.isFinite(n)) {
+    if (Number.isNaN(n)) return "\\text{NaN}";
+    return n > 0 ? "\\infty" : "-\\infty";
+  }
+
+  // For zero
+  if (n === 0) return "0";
+
+  const absN = Math.abs(n);
+  
+  // Use scientific notation for very large (>= 10 billion) or very small (< 0.0001) numbers
+  const TEN_BILLION = 1e10;
+  const SMALL_THRESHOLD = 1e-4;
+  
+  if (absN >= TEN_BILLION || absN < SMALL_THRESHOLD) {
+    // Scientific notation: X.XXXXXXXX × 10^Y
+    const exponent = Math.floor(Math.log10(absN));
+    const mantissa = n / Math.pow(10, exponent);
+    
+    // Format mantissa preserving significant digits, remove trailing zeros
+    const mantissaStr = mantissa.toPrecision(9).replace(/\.?0+$/, "");
+    
+    return `${mantissaStr} \\times 10^{${exponent}}`;
+  }
+
+  // For "normal" sized numbers, format with commas
+  // Check if it's effectively an integer
+  if (Number.isInteger(n) || Math.abs(n - Math.round(n)) < 1e-9) {
+    const intVal = Math.round(n);
+    return intVal.toLocaleString("en-US");
+  }
+  // For decimals, format with up to 9 sig figs
+  const formatted = n.toPrecision(9);
+  const parsed = parseFloat(formatted);
+  // If the parsed value is a clean integer, use commas
+  if (Number.isInteger(parsed)) {
+    return parsed.toLocaleString("en-US");
+  }
+  // Otherwise split into integer and decimal parts
+  const parts = parsed.toString().split(".");
+  const intPart = parseInt(parts[0], 10).toLocaleString("en-US");
+  const decPart = parts[1] ? `.${parts[1]}` : "";
+  return `${intPart}${decPart}`;
+}
+
 function resultToLatex(result: unknown) {
   try {
+    // Handle numbers specially for nice formatting
+    if (typeof result === "number") {
+      return formatNumberForDisplay(result);
+    }
     // mathjs exposes `latex(...)` at runtime, but its TS types may not include it.
     return (math as unknown as { latex: (x: unknown) => string }).latex(result);
   } catch {
@@ -894,7 +949,8 @@ export default function Home() {
     (index: number, latex: string, text: string) => {
       setLines((prev) => {
         const next = [...prev];
-        next[index] = { latex, text: toMathExpression(latex, text) };
+        const expr = toMathExpression(latex, text);
+        next[index] = { latex, text: expr };
         return next;
       });
     },
@@ -1007,9 +1063,9 @@ export default function Home() {
       seen.add(nodeId);
       const items = FORMULA_TREE[nodeId] ?? [];
       for (const it of items) {
-        if ("value" in it) {
+        if ("value" in it && typeof it.value === "string") {
           leaves.push({ path: pathTitles, text: it.text, value: it.value });
-        } else if ("next" in it) {
+        } else if ("next" in it && typeof it.next === "string") {
           walk(it.next, [...pathTitles, it.text]);
         }
       }
@@ -1520,7 +1576,7 @@ export default function Home() {
                 </div>
               ) : (
                 currentFormulaItems.map((it, idx) => {
-                  if ("next" in it) {
+                  if ("next" in it && typeof it.next === "string") {
                     const hasNode = Array.isArray(FORMULA_TREE[it.next]);
                     return (
                       <button
