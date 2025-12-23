@@ -1592,94 +1592,101 @@ export default function Home() {
               />
             </div>
 
-            <div className="flex-1 overflow-auto pr-1 space-y-2">
-              {formulaSearch.trim() ? (
-                filteredLeafResults.length === 0 ? (
-                  <div className="text-sm text-foreground/60">No matches.</div>
+            <div className="flex-1 overflow-auto pr-1">
+              {/* Inner padding so item shadows don't get clipped by the scroll container */}
+              <div className="space-y-2 p-2">
+                {formulaSearch.trim() ? (
+                  filteredLeafResults.length === 0 ? (
+                    <div className="text-sm text-foreground/60">No matches.</div>
+                  ) : (
+                    filteredLeafResults.map((leaf, idx) => {
+                      const latex = expressionToLatexWithConstEmbeds(
+                        leaf.value,
+                        constantsMapForEval
+                      );
+                      return (
+                        <button
+                          key={`${leaf.path.join("/")}:${leaf.text}:${idx}`}
+                          type="button"
+                          className="w-full text-left rounded-md border border-foreground/15 bg-white/15 text-white p-3 space-y-2 shadow-[0_4px_12px_0_rgba(0,0,0,0.15)] hover:bg-white/20 transition-colors"
+                          onClick={() => writeToActive(latex)}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="text-sm font-medium">{leaf.text}</div>
+                            <div className="text-[11px] text-foreground/60 text-right">
+                              {leaf.path.join(" / ")}
+                            </div>
+                          </div>
+                          <div className="text-lg text-foreground/90">
+                            <StaticMathField>{latex}</StaticMathField>
+                          </div>
+                        </button>
+                      );
+                    })
+                  )
+                ) : currentFormulaItems.length === 0 ? (
+                  <div className="text-sm text-foreground/60">
+                    Empty category (or missing node):{" "}
+                    <span className="font-mono">{currentFormulaNode}</span>
+                  </div>
                 ) : (
-                  filteredLeafResults.map((leaf, idx) => {
+                  currentFormulaItems.map((it, idx) => {
+                    if ("next" in it && typeof it.next === "string") {
+                      const hasNode = Array.isArray(FORMULA_TREE[it.next]);
+                      return (
+                        <button
+                          key={`${it.next}:${idx}`}
+                          type="button"
+                          className="w-full text-left rounded-md border border-foreground/15 bg-white/15 text-white p-3 shadow-[0_4px_12px_0_rgba(0,0,0,0.15)] hover:bg-white/20 transition-colors"
+                          onClick={() => {
+                            setFormulaNav((prev) => [
+                              ...prev,
+                              { id: it.next, title: it.text },
+                            ]);
+                          }}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="text-sm font-medium">{it.text}</div>
+                            <div className="text-xs text-foreground/60">
+                              {hasNode ? "Open" : "Missing"}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    }
+
                     const latex = expressionToLatexWithConstEmbeds(
-                      leaf.value,
+                      it.value,
                       constantsMapForEval
                     );
+                    const disabled = String(it.value).trim().toLowerCase() === "stop";
                     return (
                       <button
-                        key={`${leaf.path.join("/")}:${leaf.text}:${idx}`}
+                        key={`${it.text}:${idx}`}
                         type="button"
-                        className="w-full text-left rounded-md border border-foreground/15 bg-white/15 text-white p-3 space-y-2 shadow-[0_4px_12px_0_rgba(0,0,0,0.15)] hover:bg-white/20 transition-colors"
-                        onClick={() => writeToActive(latex)}
+                        disabled={disabled}
+                        className={[
+                          "w-full text-left rounded-md border border-foreground/15 bg-white/15 text-white p-3 space-y-2 shadow-[0_4px_12px_0_rgba(0,0,0,0.15)] transition-colors",
+                          disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-white/20",
+                        ].join(" ")}
+                        onClick={() => {
+                          if (disabled) return;
+                          writeToActive(latex);
+                        }}
                       >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="text-sm font-medium">{leaf.text}</div>
-                          <div className="text-[11px] text-foreground/60 text-right">
-                            {leaf.path.join(" / ")}
+                        <div className="text-sm font-medium">{it.text}</div>
+                        {!disabled ? (
+                          <div className="text-lg text-foreground/90">
+                            <StaticMathField>{latex}</StaticMathField>
                           </div>
-                        </div>
-                        <div className="text-lg text-foreground/90">
-                          <StaticMathField>{latex}</StaticMathField>
-                        </div>
+                        ) : (
+                          <div className="text-sm text-foreground/60">Not available yet.</div>
+                        )}
                       </button>
                     );
                   })
-                )
-              ) : currentFormulaItems.length === 0 ? (
-                <div className="text-sm text-foreground/60">
-                  Empty category (or missing node): <span className="font-mono">{currentFormulaNode}</span>
-                </div>
-              ) : (
-                currentFormulaItems.map((it, idx) => {
-                  if ("next" in it && typeof it.next === "string") {
-                    const hasNode = Array.isArray(FORMULA_TREE[it.next]);
-                    return (
-                      <button
-                        key={`${it.next}:${idx}`}
-                        type="button"
-                        className="w-full text-left rounded-md border border-foreground/15 bg-white/15 text-white p-3 shadow-[0_4px_12px_0_rgba(0,0,0,0.15)] hover:bg-white/20 transition-colors"
-                        onClick={() => {
-                          setFormulaNav((prev) => [...prev, { id: it.next, title: it.text }]);
-                        }}
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="text-sm font-medium">{it.text}</div>
-                          <div className="text-xs text-foreground/60">
-                            {hasNode ? "Open" : "Missing"}
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  }
-
-                  const latex = expressionToLatexWithConstEmbeds(
-                    it.value,
-                    constantsMapForEval
-                  );
-                  const disabled = String(it.value).trim().toLowerCase() === "stop";
-                  return (
-                    <button
-                      key={`${it.text}:${idx}`}
-                      type="button"
-                      disabled={disabled}
-                      className={[
-                        "w-full text-left rounded-md border border-foreground/15 bg-white/15 text-white p-3 space-y-2 shadow-[0_4px_12px_0_rgba(0,0,0,0.15)] transition-colors",
-                        disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-white/20",
-                      ].join(" ")}
-                      onClick={() => {
-                        if (disabled) return;
-                        writeToActive(latex);
-                      }}
-                    >
-                      <div className="text-sm font-medium">{it.text}</div>
-                      {!disabled ? (
-                        <div className="text-lg text-foreground/90">
-                          <StaticMathField>{latex}</StaticMathField>
-                        </div>
-                      ) : (
-                        <div className="text-sm text-foreground/60">Not available yet.</div>
-                      )}
-                    </button>
-                  );
-                })
-              )}
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -1707,63 +1714,66 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="flex-1 overflow-auto pr-1 space-y-2">
-              {constants.map((c) => (
-                <div
-                  key={c.key}
-                  className="rounded-md border border-foreground/15 bg-white/15 text-white p-2 space-y-2 shadow-[0_4px_12px_0_rgba(0,0,0,0.15)]"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium truncate">{c.key}</div>
-                      {!isValidConstEmbedKey(c.key) ? (
-                        <div className="text-xs text-foreground/60">
-                          Invalid key (can’t insert as badge)
-                        </div>
-                      ) : null}
+            <div className="flex-1 overflow-auto pr-1">
+              {/* Inner padding so item shadows don't get clipped by the scroll container */}
+              <div className="space-y-2 p-2">
+                {constants.map((c) => (
+                  <div
+                    key={c.key}
+                    className="rounded-md border border-foreground/15 bg-white/15 text-white p-2 space-y-2 shadow-[0_4px_12px_0_rgba(0,0,0,0.15)]"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium truncate">{c.key}</div>
+                        {!isValidConstEmbedKey(c.key) ? (
+                          <div className="text-xs text-foreground/60">
+                            Invalid key (can’t insert as badge)
+                          </div>
+                        ) : null}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={!isValidConstEmbedKey(c.key)}
+                          onClick={() => insertConstantBadge(c.key)}
+                        >
+                          Insert
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => removeConstant(c.key)}
+                        >
+                          Remove
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={!isValidConstEmbedKey(c.key)}
-                        onClick={() => insertConstantBadge(c.key)}
-                      >
-                        Insert
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => removeConstant(c.key)}
-                      >
-                        Remove
-                      </Button>
-                    </div>
+                    <label className="block text-xs text-foreground/60">Label</label>
+                    <input
+                      className="w-full rounded-md border border-foreground/15 bg-white/10 px-2 py-1 text-sm shadow-[inset_0_4px_12px_0_rgba(0,0,0,0.15)]"
+                      value={c.label}
+                      onChange={(e) => updateConstantLabel(c.key, e.target.value)}
+                      placeholder="Optional description"
+                    />
+                    <label className="block text-xs text-foreground/60">Value</label>
+                    <input
+                      className="w-full rounded-md border border-foreground/15 bg-white/10 px-2 py-1 text-sm shadow-[inset_0_4px_12px_0_rgba(0,0,0,0.15)]"
+                      inputMode="decimal"
+                      value={String(c.value)}
+                      onChange={(e) => {
+                        const n = Number(e.target.value);
+                        if (Number.isFinite(n)) updateConstantValue(c.key, n);
+                      }}
+                    />
                   </div>
-                  <label className="block text-xs text-foreground/60">Label</label>
-                  <input
-                    className="w-full rounded-md border border-foreground/15 bg-white/10 px-2 py-1 text-sm shadow-[inset_0_4px_12px_0_rgba(0,0,0,0.15)]"
-                    value={c.label}
-                    onChange={(e) => updateConstantLabel(c.key, e.target.value)}
-                    placeholder="Optional description"
-                  />
-                  <label className="block text-xs text-foreground/60">Value</label>
-                  <input
-                    className="w-full rounded-md border border-foreground/15 bg-white/10 px-2 py-1 text-sm shadow-[inset_0_4px_12px_0_rgba(0,0,0,0.15)]"
-                    inputMode="decimal"
-                    value={String(c.value)}
-                    onChange={(e) => {
-                      const n = Number(e.target.value);
-                      if (Number.isFinite(n)) updateConstantValue(c.key, n);
-                    }}
-                  />
-                </div>
-              ))}
-              {constants.length === 0 ? (
-                <div className="text-sm text-foreground/60">
-                  No constants yet. Click “Add”.
-                </div>
-              ) : null}
+                ))}
+                {constants.length === 0 ? (
+                  <div className="text-sm text-foreground/60">
+                    No constants yet. Click “Add”.
+                  </div>
+                ) : null}
+              </div>
             </div>
           </CardContent>
         </Card>
