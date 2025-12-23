@@ -1139,7 +1139,11 @@ export default function Home() {
                     size="sm"
                     variant={angleUnit === "rad" ? "default" : "ghost"}
                     onClick={() => setAngleUnit("rad")}
-                    className={angleUnit === "rad" ? "shadow-sm opacity-50" : undefined}
+                    aria-pressed={angleUnit === "rad"}
+                    className={[
+                      "min-w-14 px-4",
+                      angleUnit === "rad" ? "shadow-sm" : "text-foreground/70",
+                    ].join(" ")}
                   >
                     RAD
                   </Button>
@@ -1147,7 +1151,11 @@ export default function Home() {
                     size="sm"
                     variant={angleUnit === "deg" ? "default" : "ghost"}
                     onClick={() => setAngleUnit("deg")}
-                    className={angleUnit === "deg" ? "shadow-sm" : undefined}
+                    aria-pressed={angleUnit === "deg"}
+                    className={[
+                      "min-w-14 px-4",
+                      angleUnit === "deg" ? "shadow-sm" : "text-foreground/70",
+                    ].join(" ")}
                   >
                     DEG
                   </Button>
