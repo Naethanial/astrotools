@@ -714,6 +714,9 @@ export default function Home() {
   const [calcCentered, setCalcCentered] = useState(true);
   const [calcAnchor, setCalcAnchor] = useState<"left" | "right">("left");
 
+  // Combined flag for blur/fade styling when either drawer is open
+  const drawerOpen = formulasOpen || constantsOpen;
+
   type UndoSnapshot = { lines: Line[]; activeIndex: number };
   const undoRef = useRef<{
     stack: UndoSnapshot[];
@@ -1112,14 +1115,20 @@ export default function Home() {
           // expand/contract from the left edge (not re-centering mid-transition).
           "w-full transition-[max-width] duration-240 ease-[cubic-bezier(0.2,0.8,0.2,1)]",
           calcCentered ? "mx-auto" : calcAnchor === "left" ? "mr-auto" : "ml-auto",
-          formulasOpen || constantsOpen
+          drawerOpen
             ? // When the right "window" is open (50vw), constrain the calculator to the remaining space
               // inside the same page padding (p-6 => 3rem total horizontal padding).
-              "max-w-[min(64rem,calc(50vw-3rem))]"
+              "max-w-[min(64rem,calc(50vw-3rem))] drawer-open"
             : "max-w-[calc(100vw-3rem)]",
         ].join(" ")}
       >
-        <Card className="w-full backdrop-blur-md h-[calc(100vh-3rem)]">
+        <Card
+          className={[
+            "w-full backdrop-blur-md h-[calc(100vh-3rem)]",
+            "transition-opacity duration-240 ease-[cubic-bezier(0.2,0.8,0.2,1)]",
+            drawerOpen ? "opacity-60" : "opacity-100",
+          ].join(" ")}
+        >
           <CardContent className="h-full flex flex-col gap-4 overflow-hidden">
             {/* Top toolbar */}
             <div className="flex items-center justify-between gap-2 shrink-0">
@@ -1211,7 +1220,7 @@ export default function Home() {
                     className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive("^{2}")}
                   >
-                    <span className="mq-toolbar-icon">
+                    <span className="mq-toolbar-icon calc-legend">
                       <StaticMathField>{"a^{2}"}</StaticMathField>
                     </span>
                   </Button>
@@ -1220,7 +1229,7 @@ export default function Home() {
                     className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive("^{}")}
                   >
-                    <span className="mq-toolbar-icon">
+                    <span className="mq-toolbar-icon calc-legend">
                       <StaticMathField>{"a^{b}"}</StaticMathField>
                     </span>
                   </Button>
@@ -1229,7 +1238,7 @@ export default function Home() {
                     className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive("\\left|\\right|")}
                   >
-                    <span className="mq-toolbar-icon">
+                    <span className="mq-toolbar-icon calc-legend">
                       <StaticMathField>{"\\left|a\\right|"}</StaticMathField>
                     </span>
                   </Button>
@@ -1239,7 +1248,7 @@ export default function Home() {
                     className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive("\\sqrt{}")}
                   >
-                    <span className="mq-toolbar-icon">
+                    <span className="mq-toolbar-icon calc-legend">
                       <StaticMathField>{"\\sqrt{x}"}</StaticMathField>
                     </span>
                   </Button>
@@ -1248,7 +1257,7 @@ export default function Home() {
                     className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive("\\sqrt[n]{}")}
                   >
-                    <span className="mq-toolbar-icon">
+                    <span className="mq-toolbar-icon calc-legend">
                       <StaticMathField>{"\\sqrt[n]{x}"}</StaticMathField>
                     </span>
                   </Button>
@@ -1257,7 +1266,7 @@ export default function Home() {
                     className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive("\\pi ")}
                   >
-                    <span className="mq-toolbar-icon">
+                    <span className="mq-toolbar-icon calc-legend">
                       <StaticMathField>{"\\pi"}</StaticMathField>
                     </span>
                   </Button>
@@ -1267,21 +1276,21 @@ export default function Home() {
                     className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive("sin\\left(\\right)")}
                   >
-                    sin
+                    <span className="calc-legend">sin</span>
                   </Button>
                   <Button
                     variant="outline"
                     className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive("cos\\left(\\right)")}
                   >
-                    cos
+                    <span className="calc-legend">cos</span>
                   </Button>
                   <Button
                     variant="outline"
                     className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive("tan\\left(\\right)")}
                   >
-                    tan
+                    <span className="calc-legend">tan</span>
                   </Button>
 
                   <Button
@@ -1289,21 +1298,21 @@ export default function Home() {
                     className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive("(")}
                   >
-                    (
+                    <span className="calc-legend">(</span>
                   </Button>
                   <Button
                     variant="outline"
                     className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive(")")}
                   >
-                    )
+                    <span className="calc-legend">)</span>
                   </Button>
                   <Button
                     variant="outline"
                     className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive(",")}
                   >
-                    ,
+                    <span className="calc-legend">,</span>
                   </Button>
                 </div>
               </div>
@@ -1316,28 +1325,28 @@ export default function Home() {
                     className="h-10 sm:h-12 lg:h-14 bg-foreground/10"
                     onClick={() => writeToActive("7")}
                   >
-                    7
+                    <span className="calc-legend">7</span>
                   </Button>
                   <Button
                     variant="outline"
                     className="h-10 sm:h-12 lg:h-14 bg-foreground/10"
                     onClick={() => writeToActive("8")}
                   >
-                    8
+                    <span className="calc-legend">8</span>
                   </Button>
                   <Button
                     variant="outline"
                     className="h-10 sm:h-12 lg:h-14 bg-foreground/10"
                     onClick={() => writeToActive("9")}
                   >
-                    9
+                    <span className="calc-legend">9</span>
                   </Button>
                   <Button
                     variant="outline"
                     className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive("\\div ")}
                   >
-                    ÷
+                    <span className="calc-legend">÷</span>
                   </Button>
 
                   <Button
@@ -1345,28 +1354,28 @@ export default function Home() {
                     className="h-10 sm:h-12 lg:h-14 bg-foreground/10"
                     onClick={() => writeToActive("4")}
                   >
-                    4
+                    <span className="calc-legend">4</span>
                   </Button>
                   <Button
                     variant="outline"
                     className="h-10 sm:h-12 lg:h-14 bg-foreground/10"
                     onClick={() => writeToActive("5")}
                   >
-                    5
+                    <span className="calc-legend">5</span>
                   </Button>
                   <Button
                     variant="outline"
                     className="h-10 sm:h-12 lg:h-14 bg-foreground/10"
                     onClick={() => writeToActive("6")}
                   >
-                    6
+                    <span className="calc-legend">6</span>
                   </Button>
                   <Button
                     variant="outline"
                     className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive("\\times ")}
                   >
-                    ×
+                    <span className="calc-legend">×</span>
                   </Button>
 
                   <Button
@@ -1374,28 +1383,28 @@ export default function Home() {
                     className="h-10 sm:h-12 lg:h-14 bg-foreground/10"
                     onClick={() => writeToActive("1")}
                   >
-                    1
+                    <span className="calc-legend">1</span>
                   </Button>
                   <Button
                     variant="outline"
                     className="h-10 sm:h-12 lg:h-14 bg-foreground/10"
                     onClick={() => writeToActive("2")}
                   >
-                    2
+                    <span className="calc-legend">2</span>
                   </Button>
                   <Button
                     variant="outline"
                     className="h-10 sm:h-12 lg:h-14 bg-foreground/10"
                     onClick={() => writeToActive("3")}
                   >
-                    3
+                    <span className="calc-legend">3</span>
                   </Button>
                   <Button
                     variant="outline"
                     className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive("-")}
                   >
-                    −
+                    <span className="calc-legend">−</span>
                   </Button>
 
                   <Button
@@ -1403,28 +1412,28 @@ export default function Home() {
                     className="h-10 sm:h-12 lg:h-14 bg-foreground/10"
                     onClick={() => writeToActive("0")}
                   >
-                    0
+                    <span className="calc-legend">0</span>
                   </Button>
                   <Button
                     variant="outline"
                     className="h-10 sm:h-12 lg:h-14 bg-foreground/10"
                     onClick={() => writeToActive(".")}
                   >
-                    .
+                    <span className="calc-legend">.</span>
                   </Button>
                   <Button
                     variant="outline"
                     className="h-10 sm:h-12 lg:h-14 bg-background/35"
                     onClick={() => writeToActive("ans")}
                   >
-                    ans
+                    <span className="calc-legend">ans</span>
                   </Button>
                   <Button
                     variant="outline"
                     className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive("+")}
                   >
-                    +
+                    <span className="calc-legend">+</span>
                   </Button>
                 </div>
               </div>
@@ -1437,14 +1446,14 @@ export default function Home() {
                     className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive("i")}
                   >
-                    i
+                    <span className="calc-legend">i</span>
                   </Button>
                   <Button
                     variant="outline"
                     className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive("\\frac{}{}")}
                   >
-                    <span className="mq-toolbar-icon">
+                    <span className="mq-toolbar-icon calc-legend">
                       <StaticMathField>{"\\frac{a}{b}"}</StaticMathField>
                     </span>
                   </Button>
@@ -1480,8 +1489,8 @@ export default function Home() {
                     onClick={() => addLineAfter(activeIndex)}
                     title="Enter / new line"
                   >
-                    <CornerDownLeft className="h-5 w-5 mr-2" />
-                    Enter
+                    <CornerDownLeft className={`h-5 w-5 ${drawerOpen ? "mr-0" : "mr-2"}`} />
+                    <span className="calc-legend">Enter</span>
                   </Button>
                 </div>
               </div>
@@ -1491,17 +1500,19 @@ export default function Home() {
         </Card>
       </div>
 
-      {/* Backdrop for side drawers */}
-      {formulasOpen || constantsOpen ? (
-        <div
-          className="fixed inset-0 z-40 bg-black/20"
-          onMouseDown={(e) => {
-            if (e.target !== e.currentTarget) return;
-            closeConstants();
-            closeFormulas();
-          }}
-        />
-      ) : null}
+      {/* Backdrop for side drawers (always rendered for smooth transitions) */}
+      <div
+        className={[
+          "fixed inset-0 z-40 bg-black/20 backdrop-blur-lg",
+          "transition-[opacity,backdrop-filter] duration-240 ease-[cubic-bezier(0.2,0.8,0.2,1)]",
+          drawerOpen ? "opacity-100" : "opacity-0 pointer-events-none",
+        ].join(" ")}
+        onMouseDown={(e) => {
+          if (e.target !== e.currentTarget) return;
+          closeConstants();
+          closeFormulas();
+        }}
+      />
 
       {/* Separate "window" that slides in from the left edge */}
       <div

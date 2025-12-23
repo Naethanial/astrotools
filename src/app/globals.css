@@ -84,3 +84,11 @@ nextjs-portal {
   border-image: none !important;
   box-shadow: inset 0px 0px 4px 0px rgba(0, 0, 0, 0.23) !important;
 }
+
+/* Keypad button legend fade transitions when drawer is open */
+.calc-legend {
+  transition: opacity 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.drawer-open .calc-legend {
+  opacity: 0;
+}
