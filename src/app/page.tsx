@@ -571,7 +571,7 @@ function resultToLatex(result: unknown) {
 
 function evaluateLines(
   lines: Line[],
-  angleUnit: "deg" | "rad",
+  angleUnit: "deg" | "rad" | "arcsec",
   constantsMap: Record<string, number>
 ): Array<{ latex: string; raw: unknown }> {
   const scope: Record<string, unknown> = {};
@@ -600,6 +600,12 @@ function evaluateLines(
     }
     return acc * h;
   };
+  const RAD_TO_DEG = 180 / Math.PI;
+  const DEG_TO_RAD = Math.PI / 180;
+  const ARCSEC_PER_DEG = 3600;
+  const ARCSEC_TO_RAD = DEG_TO_RAD / ARCSEC_PER_DEG; // pi / 648000
+  const RAD_TO_ARCSEC = 1 / ARCSEC_TO_RAD; // 648000 / pi
+
   if (angleUnit === "deg") {
     scope.sin = (x: number) => math.sin(math.unit(x, "deg"));
     scope.cos = (x: number) => math.cos(math.unit(x, "deg"));
@@ -607,9 +613,20 @@ function evaluateLines(
     scope.sec = (x: number) => 1 / (scope.cos as (x: number) => number)(x);
     scope.csc = (x: number) => 1 / (scope.sin as (x: number) => number)(x);
     scope.cot = (x: number) => 1 / (scope.tan as (x: number) => number)(x);
-    scope.asin = (x: number) => Number(math.asin(x)) * (180 / Math.PI);
-    scope.acos = (x: number) => Number(math.acos(x)) * (180 / Math.PI);
-    scope.atan = (x: number) => Number(math.atan(x)) * (180 / Math.PI);
+    scope.asin = (x: number) => Number(math.asin(x)) * RAD_TO_DEG;
+    scope.acos = (x: number) => Number(math.acos(x)) * RAD_TO_DEG;
+    scope.atan = (x: number) => Number(math.atan(x)) * RAD_TO_DEG;
+  } else if (angleUnit === "arcsec") {
+    const asRad = (x: number) => x * ARCSEC_TO_RAD;
+    scope.sin = (x: number) => math.sin(asRad(x));
+    scope.cos = (x: number) => math.cos(asRad(x));
+    scope.tan = (x: number) => math.tan(asRad(x));
+    scope.sec = (x: number) => 1 / (scope.cos as (x: number) => number)(x);
+    scope.csc = (x: number) => 1 / (scope.sin as (x: number) => number)(x);
+    scope.cot = (x: number) => 1 / (scope.tan as (x: number) => number)(x);
+    scope.asin = (x: number) => Number(math.asin(x)) * RAD_TO_ARCSEC;
+    scope.acos = (x: number) => Number(math.acos(x)) * RAD_TO_ARCSEC;
+    scope.atan = (x: number) => Number(math.atan(x)) * RAD_TO_ARCSEC;
   }
 
   // Badge-only constants: only \embed{const}[...] inserts compile to __const("...").
@@ -707,7 +724,7 @@ export default function Home() {
 
   const [lines, setLines] = useState<Line[]>([{ latex: "", text: "" }]);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [angleUnit, setAngleUnit] = useState<"deg" | "rad">("rad");
+  const [angleUnit, setAngleUnit] = useState<"deg" | "rad" | "arcsec">("rad");
   const fieldRefs = useRef<Array<MQFieldApi | null>>([]);
   const [formulasOpen, setFormulasOpen] = useState(false);
   const [constantsOpen, setConstantsOpen] = useState(false);
@@ -1167,6 +1184,18 @@ export default function Home() {
                     ].join(" ")}
                   >
                     DEG
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={angleUnit === "arcsec" ? "default" : "ghost"}
+                    onClick={() => setAngleUnit("arcsec")}
+                    aria-pressed={angleUnit === "arcsec"}
+                    className={[
+                      "min-w-14 px-4",
+                      angleUnit === "arcsec" ? "shadow-sm" : "text-foreground/70",
+                    ].join(" ")}
+                  >
+                    ARCSEC
                   </Button>
                 </div>
               </div>
