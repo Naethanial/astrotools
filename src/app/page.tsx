@@ -1156,7 +1156,7 @@ export default function Home() {
             </div>
 
             {/* Math field (top) */}
-            <div className="min-h-0 flex-1 rounded-xl border border-foreground/10 bg-background/25 backdrop-blur-md shadow-[inset_0_1px_0_0_rgba(255,255,255,0.12)] overflow-auto p-3">
+            <div className="min-h-[180px] flex-1 rounded-xl border border-foreground/10 bg-background/25 backdrop-blur-md shadow-[inset_0_1px_0_0_rgba(255,255,255,0.12)] overflow-auto p-3">
               <div className="space-y-2">
                 {lines.map((line, i) => (
                   <div key={i} className="flex items-center gap-3">
@@ -1176,7 +1176,7 @@ export default function Home() {
                         fieldClassName="block w-full min-h-10 px-0 py-0 rounded-none border-0 bg-transparent bg-none text-lg focus-within:ring-0"
                       />
 
-                      <div className="shrink-0 max-w-[45%] overflow-hidden pl-3 border-l border-foreground/10 text-right text-lg tabular-nums text-foreground/80 pointer-events-none">
+                      <div className="shrink-0 max-w-[45%] overflow-hidden pl-3 border-l border-foreground/10 text-right text-lg tabular-nums text-foreground/80 pointer-events-none mq-toolbar-icon">
                         {results[i]?.latex ? (
                           <StaticMathField>{results[i].latex}</StaticMathField>
                         ) : (
@@ -1192,14 +1192,15 @@ export default function Home() {
             {/* Divider */}
             <div className="shrink-0 h-px bg-foreground/10" />
 
-            {/* Keypad (bottom) */}
-            <div className="shrink-0 grid gap-4 max-md:grid-cols-1 grid-cols-[minmax(0,0.95fr)_minmax(0,1.25fr)_minmax(0,0.8fr)]">
+            {/* Keypad (bottom) - scrollable when space is tight */}
+            <div className="min-h-0 shrink overflow-auto">
+              <div className="grid gap-2 sm:gap-4 max-md:grid-cols-1 grid-cols-[minmax(0,0.95fr)_minmax(0,1.25fr)_minmax(0,0.8fr)]">
               {/* Left panel: scientific */}
               <div className="rounded-xl border border-foreground/10 bg-foreground/5 backdrop-blur-sm p-3">
                 <div className="grid grid-cols-3 gap-2">
                   <Button
                     variant="outline"
-                    className="h-14 bg-background/20"
+                    className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive("^{2}")}
                   >
                     <span className="mq-toolbar-icon">
@@ -1208,7 +1209,7 @@ export default function Home() {
                   </Button>
                   <Button
                     variant="outline"
-                    className="h-14 bg-background/20"
+                    className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive("^{}")}
                   >
                     <span className="mq-toolbar-icon">
@@ -1217,7 +1218,7 @@ export default function Home() {
                   </Button>
                   <Button
                     variant="outline"
-                    className="h-14 bg-background/20"
+                    className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive("\\left|\\right|")}
                   >
                     <span className="mq-toolbar-icon">
@@ -1227,25 +1228,25 @@ export default function Home() {
 
                   <Button
                     variant="outline"
-                    className="h-14 bg-background/20"
+                    className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive("\\sqrt{}")}
                   >
                     <span className="mq-toolbar-icon">
-                      <StaticMathField>{"\\sqrt{}"}</StaticMathField>
+                      <StaticMathField>{"\\sqrt{x}"}</StaticMathField>
                     </span>
                   </Button>
                   <Button
                     variant="outline"
-                    className="h-14 bg-background/20"
+                    className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive("\\sqrt[n]{}")}
                   >
                     <span className="mq-toolbar-icon">
-                      <StaticMathField>{"\\sqrt[n]{}"}</StaticMathField>
+                      <StaticMathField>{"\\sqrt[n]{x}"}</StaticMathField>
                     </span>
                   </Button>
                   <Button
                     variant="outline"
-                    className="h-14 bg-background/20"
+                    className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive("\\pi ")}
                   >
                     <span className="mq-toolbar-icon">
@@ -1255,21 +1256,21 @@ export default function Home() {
 
                   <Button
                     variant="outline"
-                    className="h-14 bg-background/20"
+                    className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive("sin\\left(\\right)")}
                   >
                     sin
                   </Button>
                   <Button
                     variant="outline"
-                    className="h-14 bg-background/20"
+                    className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive("cos\\left(\\right)")}
                   >
                     cos
                   </Button>
                   <Button
                     variant="outline"
-                    className="h-14 bg-background/20"
+                    className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive("tan\\left(\\right)")}
                   >
                     tan
@@ -1277,21 +1278,21 @@ export default function Home() {
 
                   <Button
                     variant="outline"
-                    className="h-14 bg-background/20"
+                    className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive("(")}
                   >
                     (
                   </Button>
                   <Button
                     variant="outline"
-                    className="h-14 bg-background/20"
+                    className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive(")")}
                   >
                     )
                   </Button>
                   <Button
                     variant="outline"
-                    className="h-14 bg-background/20"
+                    className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive(",")}
                   >
                     ,
@@ -1304,28 +1305,28 @@ export default function Home() {
                 <div className="grid grid-cols-4 gap-2">
                   <Button
                     variant="outline"
-                    className="h-14 bg-foreground/10"
+                    className="h-10 sm:h-12 lg:h-14 bg-foreground/10"
                     onClick={() => writeToActive("7")}
                   >
                     7
                   </Button>
                   <Button
                     variant="outline"
-                    className="h-14 bg-foreground/10"
+                    className="h-10 sm:h-12 lg:h-14 bg-foreground/10"
                     onClick={() => writeToActive("8")}
                   >
                     8
                   </Button>
                   <Button
                     variant="outline"
-                    className="h-14 bg-foreground/10"
+                    className="h-10 sm:h-12 lg:h-14 bg-foreground/10"
                     onClick={() => writeToActive("9")}
                   >
                     9
                   </Button>
                   <Button
                     variant="outline"
-                    className="h-14 bg-background/20"
+                    className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive("\\div ")}
                   >
                     ÷
@@ -1333,28 +1334,28 @@ export default function Home() {
 
                   <Button
                     variant="outline"
-                    className="h-14 bg-foreground/10"
+                    className="h-10 sm:h-12 lg:h-14 bg-foreground/10"
                     onClick={() => writeToActive("4")}
                   >
                     4
                   </Button>
                   <Button
                     variant="outline"
-                    className="h-14 bg-foreground/10"
+                    className="h-10 sm:h-12 lg:h-14 bg-foreground/10"
                     onClick={() => writeToActive("5")}
                   >
                     5
                   </Button>
                   <Button
                     variant="outline"
-                    className="h-14 bg-foreground/10"
+                    className="h-10 sm:h-12 lg:h-14 bg-foreground/10"
                     onClick={() => writeToActive("6")}
                   >
                     6
                   </Button>
                   <Button
                     variant="outline"
-                    className="h-14 bg-background/20"
+                    className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive("\\times ")}
                   >
                     ×
@@ -1362,28 +1363,28 @@ export default function Home() {
 
                   <Button
                     variant="outline"
-                    className="h-14 bg-foreground/10"
+                    className="h-10 sm:h-12 lg:h-14 bg-foreground/10"
                     onClick={() => writeToActive("1")}
                   >
                     1
                   </Button>
                   <Button
                     variant="outline"
-                    className="h-14 bg-foreground/10"
+                    className="h-10 sm:h-12 lg:h-14 bg-foreground/10"
                     onClick={() => writeToActive("2")}
                   >
                     2
                   </Button>
                   <Button
                     variant="outline"
-                    className="h-14 bg-foreground/10"
+                    className="h-10 sm:h-12 lg:h-14 bg-foreground/10"
                     onClick={() => writeToActive("3")}
                   >
                     3
                   </Button>
                   <Button
                     variant="outline"
-                    className="h-14 bg-background/20"
+                    className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive("-")}
                   >
                     −
@@ -1391,28 +1392,28 @@ export default function Home() {
 
                   <Button
                     variant="outline"
-                    className="h-14 bg-foreground/10"
+                    className="h-10 sm:h-12 lg:h-14 bg-foreground/10"
                     onClick={() => writeToActive("0")}
                   >
                     0
                   </Button>
                   <Button
                     variant="outline"
-                    className="h-14 bg-foreground/10"
+                    className="h-10 sm:h-12 lg:h-14 bg-foreground/10"
                     onClick={() => writeToActive(".")}
                   >
                     .
                   </Button>
                   <Button
                     variant="outline"
-                    className="h-14 bg-background/35"
+                    className="h-10 sm:h-12 lg:h-14 bg-background/35"
                     onClick={() => writeToActive("ans")}
                   >
                     ans
                   </Button>
                   <Button
                     variant="outline"
-                    className="h-14 bg-background/20"
+                    className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive("+")}
                   >
                     +
@@ -1425,22 +1426,24 @@ export default function Home() {
                 <div className="grid grid-cols-2 gap-2">
                   <Button
                     variant="outline"
-                    className="h-14 bg-background/20"
+                    className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive("i")}
                   >
                     i
                   </Button>
                   <Button
                     variant="outline"
-                    className="h-14 bg-background/20"
+                    className="h-10 sm:h-12 lg:h-14 bg-background/20"
                     onClick={() => writeToActive("\\frac{}{}")}
                   >
-                    <StaticMathField>{"\\frac{a}{b}"}</StaticMathField>
+                    <span className="mq-toolbar-icon">
+                      <StaticMathField>{"\\frac{a}{b}"}</StaticMathField>
+                    </span>
                   </Button>
 
                   <Button
                     variant="outline"
-                    className="h-14 bg-foreground/10"
+                    className="h-10 sm:h-12 lg:h-14 bg-foreground/10"
                     onClick={() => keystrokeActive("Left")}
                     title="Move cursor left"
                   >
@@ -1448,7 +1451,7 @@ export default function Home() {
                   </Button>
                   <Button
                     variant="outline"
-                    className="h-14 bg-foreground/10"
+                    className="h-10 sm:h-12 lg:h-14 bg-foreground/10"
                     onClick={() => keystrokeActive("Right")}
                     title="Move cursor right"
                   >
@@ -1457,7 +1460,7 @@ export default function Home() {
 
                   <Button
                     variant="outline"
-                    className="col-span-2 h-14 bg-foreground/10"
+                    className="col-span-2 h-10 sm:h-12 lg:h-14 bg-foreground/10"
                     onClick={() => keystrokeActive("Backspace")}
                     title="Backspace"
                   >
@@ -1465,7 +1468,7 @@ export default function Home() {
                   </Button>
 
                   <Button
-                    className="col-span-2 h-14"
+                    className="col-span-2 h-10 sm:h-12 lg:h-14"
                     onClick={() => addLineAfter(activeIndex)}
                     title="Enter / new line"
                   >
@@ -1473,6 +1476,7 @@ export default function Home() {
                     Enter
                   </Button>
                 </div>
+              </div>
               </div>
             </div>
           </CardContent>
