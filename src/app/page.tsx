@@ -659,7 +659,7 @@ function evaluateLines(
       if (typeof res === "number") res = normalizeNumber(res);
       if (res !== undefined) lastAns = res;
       out.push({ latex: resultToLatex(res), raw: res });
-    } catch (err) {
+    } catch {
       // Keep the result blank for invalid/incomplete inputs.
       out.push({ latex: "", raw: "" });
     }
