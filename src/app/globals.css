@@ -59,9 +59,17 @@ nextjs-portal {
   /* Keep content left-aligned but allow proper vertical centering */
   width: 100%;
 }
-.mq-math-mode.mq-focused .mq-cursor,
-.mq-math-mode .mq-hasCursor .mq-cursor {
+/* Only show the caret in *editable* MathQuill fields (StaticMathField should never
+   display the typing indicator). */
+.mq-editable-field.mq-focused .mq-cursor,
+.mq-editable-field.mq-hasCursor .mq-cursor {
   border-left: 1px solid currentColor !important;
+}
+
+/* Static / preview math: hide any caret + hidden textarea artifacts. */
+.mq-math-mode:not(.mq-editable-field) .mq-cursor,
+.mq-math-mode:not(.mq-editable-field) .mq-textarea {
+  display: none !important;
 }
 
 /* Toolbar icons: hide MathQuill "typing" artifacts (empty placeholders/cursor/textarea) */
@@ -79,6 +87,10 @@ nextjs-portal {
   box-sizing: content-box !important;
   text-align: center !important;
   flex-wrap: wrap !important;
+  padding-top: 2px !important;
+  padding-bottom: 2px !important;
+  padding-left: 5px !important;
+  padding-right: 5px !important;
   background-color: rgba(255, 255, 255, 0.1) !important;
   border-color: rgba(255, 255, 255, 0.1) !important;
   border-image: none !important;
